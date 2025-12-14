@@ -3,8 +3,9 @@ import { Post } from '@/types';
 import { Card, CardContent } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
-import { Heart, MessageCircle, Play, Layers, Clock } from 'lucide-react';
+import { Heart, MessageCircle, Play, Layers, Clock, ExternalLink } from 'lucide-react';
 import Image from 'next/image';
+import { useState } from 'react';
 
 interface PostCardProps {
     post: Post;
@@ -41,22 +42,54 @@ function formatDate(dateString: string): string {
 export function PostCard({ post }: PostCardProps) {
     const isVideo = post.type === 'Video';
     const isSidecar = post.type === 'Sidecar';
+    const [isPlaying, setIsPlaying] = useState(false);
+
+    const handlePlay = (e: React.MouseEvent) => {
+        if (isVideo && post.video_url) {
+            e.preventDefault();
+            setIsPlaying(true);
+        }
+    };
 
     return (
         <Card className="overflow-hidden h-full flex flex-col border border-border bg-card shadow-sm rounded-xl group transition-all hover:shadow-md">
             {/* Cover Image */}
-            <CardContent className="p-0 relative aspect-[4/5] bg-muted">
-                <img
-                    src={`/api/proxy/image?url=${encodeURIComponent(post.display_url || '')}`}
-                    alt={post.caption || 'Instagram Post'}
-                    className="object-cover w-full h-full transition-opacity group-hover:opacity-90"
-                    referrerPolicy="no-referrer"
-                    loading="lazy"
-                />
+            <CardContent className="p-0 relative aspect-[4/5] bg-muted cursor-pointer" onClick={handlePlay}>
+                {isPlaying && post.video_url ? (
+                    <video
+                        src={`/api/proxy/video?url=${encodeURIComponent(post.video_url)}`}
+                        className="w-full h-full object-cover"
+                        controls
+                        autoPlay
+                        playsInline
+                        loop
+                    />
+                ) : (
+                    <img
+                        src={`/api/proxy/image?url=${encodeURIComponent(post.display_url || '')}`}
+                        alt={post.caption || 'Instagram Post'}
+                        className="object-cover w-full h-full transition-opacity group-hover:opacity-90"
+                        referrerPolicy="no-referrer"
+                        loading="lazy"
+                    />
+                )}
+
+                {/* Video Play Overlay */}
+                {isVideo && !isPlaying && (
+                    <div className="absolute inset-0 z-10 flex items-center justify-center flex md:hidden md:group-hover:flex transition-all duration-300">
+                        <div className="bg-black/40 hover:bg-black/50 backdrop-blur-[2px] rounded-full p-4 shadow-xl border border-white/20 transform transition-transform group-hover:scale-110">
+                            <Play className="w-8 h-8 text-white fill-white" />
+                        </div>
+                    </div>
+                )}
 
                 {/* Type Badges */}
-                <div className="absolute top-2 right-2 flex gap-1">
-                    {isVideo && <div className="bg-black/50 text-white p-1 rounded"><Play className="w-3 h-3" /></div>}
+                <div className="absolute top-2 right-2 flex gap-1 z-20">
+                    {isVideo && (
+                        <div className="bg-black/50 text-white p-1 rounded md:block hidden md:group-hover:hidden transition-opacity">
+                            <Play className="w-3 h-3" />
+                        </div>
+                    )}
                     {isSidecar && <div className="bg-black/50 text-white p-1 rounded"><Layers className="w-3 h-3" /></div>}
                 </div>
             </CardContent>
@@ -75,6 +108,16 @@ export function PostCard({ post }: PostCardProps) {
                             <span>{formatNumber(post.comment_count)}</span>
                         </div>
                     </div>
+
+                    <a
+                        href={post.permalink}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-muted-foreground hover:text-primary transition-colors p-1 rounded-md hover:bg-muted"
+                        title="View Original Post"
+                    >
+                        <ExternalLink className="w-4 h-4" />
+                    </a>
                 </div>
 
                 {/* Author & Time */}
