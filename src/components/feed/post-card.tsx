@@ -5,7 +5,8 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Heart, MessageCircle, Play, Layers, Clock, ExternalLink, Eye } from 'lucide-react';
 import Image from 'next/image';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useVideoPlayback } from '@/contexts/video-playback-context';
 
 interface PostCardProps {
     post: Post;
@@ -43,11 +44,20 @@ export function PostCard({ post }: PostCardProps) {
     const isVideo = post.type === 'Video';
     const isSidecar = post.type === 'Sidecar';
     const [isPlaying, setIsPlaying] = useState(false);
+    const { playingId, setPlayingId } = useVideoPlayback();
+
+    // Auto-stop if another video starts playing
+    useEffect(() => {
+        if (playingId && playingId !== post.id && isPlaying) {
+            setIsPlaying(false);
+        }
+    }, [playingId, post.id, isPlaying]);
 
     const handlePlay = (e: React.MouseEvent) => {
         if (isVideo && post.video_url) {
             e.preventDefault();
             setIsPlaying(true);
+            setPlayingId(post.id);
         }
     };
 
