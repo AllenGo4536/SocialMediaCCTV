@@ -8,6 +8,17 @@ import { Profile } from '@/types';
 import { Trash2, Loader2, ArrowLeft, CheckCircle2 } from 'lucide-react';
 import Link from 'next/link';
 import { toast } from 'sonner';
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+    AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
 
 export default function AdminPage() {
     const [profiles, setProfiles] = useState<Profile[]>([]);
@@ -36,7 +47,7 @@ export default function AdminPage() {
     }, []);
 
     const handleDelete = async (id: string, username: string) => {
-        if (!confirm(`Are you sure you want to remove @${username}?`)) return;
+
 
         try {
             const res = await fetch(`/api/profiles/${id}`, {
@@ -103,15 +114,41 @@ export default function AdminPage() {
                                     </div>
                                 </div>
 
-                                <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    className="text-muted-foreground hover:text-destructive hover:bg-destructive/10 gap-2 transition-colors"
-                                    onClick={() => handleDelete(profile.id, profile.username)}
-                                >
-                                    <Trash2 className="w-4 h-4" />
-                                    <span className="hidden sm:inline">删除</span>
-                                </Button>
+
+
+                                <AlertDialog>
+                                    <AlertDialogTrigger asChild>
+                                        <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            className="text-muted-foreground hover:text-destructive hover:bg-destructive/10 gap-2 transition-colors"
+                                        >
+                                            <Trash2 className="w-4 h-4" />
+                                            <span className="hidden sm:inline">删除</span>
+                                        </Button>
+                                    </AlertDialogTrigger>
+                                    <AlertDialogContent>
+                                        <AlertDialogHeader>
+                                            <AlertDialogTitle>确认删除博主 @{profile.username}？</AlertDialogTitle>
+                                            <AlertDialogDescription>
+                                                此操作将永久移除该博主。
+                                                <br /><br />
+                                                <span className="text-destructive font-semibold">注意：所有相关的历史帖子数据都将被清空，且无法恢复。</span>
+                                                <br />
+                                                如果您只想暂停监控，请不要执行此操作。
+                                            </AlertDialogDescription>
+                                        </AlertDialogHeader>
+                                        <AlertDialogFooter>
+                                            <AlertDialogCancel>取消</AlertDialogCancel>
+                                            <AlertDialogAction
+                                                onClick={() => handleDelete(profile.id, profile.username)}
+                                                className="bg-destructive hover:bg-destructive/90"
+                                            >
+                                                确认删除
+                                            </AlertDialogAction>
+                                        </AlertDialogFooter>
+                                    </AlertDialogContent>
+                                </AlertDialog>
                             </div>
                         ))}
                     </div>
