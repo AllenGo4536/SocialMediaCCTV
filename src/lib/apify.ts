@@ -18,7 +18,7 @@ export const INSTAGRAM_SCRAPER_ACTOR_ID = 'apify/instagram-post-scraper';
  * @param usernames Array of Instagram usernames to scrape
  * @param limit Max posts per profile (default 30 for initial scrape)
  */
-export async function triggerInstagramScrape(usernames: string[], limit: number = 30) {
+export async function triggerInstagramScrape(usernames: string[], limit: number = 5) {
     const webhookUrl = process.env.NEXT_PUBLIC_BASE_URL
         ? `${process.env.NEXT_PUBLIC_BASE_URL}/api/webhooks/apify`
         : undefined;
