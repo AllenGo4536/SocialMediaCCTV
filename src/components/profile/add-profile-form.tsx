@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Loader2, Plus } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
+import { useAuth } from '@/components/auth/auth-provider';
 
 interface AddProfileFormProps {
     onSuccess: () => void;
@@ -17,9 +18,15 @@ interface AddProfileFormProps {
 export function AddProfileForm({ onSuccess, className }: AddProfileFormProps) {
     const [url, setUrl] = useState('');
     const [loading, setLoading] = useState(false);
+    const { user, openAuthModal } = useAuth();
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+
+        if (!user) {
+            openAuthModal();
+            return;
+        }
         if (!url) return;
 
         // ... logic ...

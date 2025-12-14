@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react';
 import { PostCard } from '@/components/feed/post-card';
 import { AddProfileForm } from '@/components/profile/add-profile-form';
 import { Button } from '@/components/ui/button';
+import { UserNav } from '@/components/auth/user-nav';
 import { Post } from '@/types';
 import { Loader2, ArrowLeft, ArrowRight, Search } from 'lucide-react';
 import { toast } from 'sonner';
@@ -85,11 +86,14 @@ export default function Home() {
             </div>
           </div>
 
-          <Link href="/admin">
-            <Button variant="ghost" className="text-primary hover:text-primary/80 hover:bg-primary/10">
-              管理博主
-            </Button>
-          </Link>
+          <div className="flex items-center gap-4">
+            <Link href="/admin">
+              <Button variant="ghost" className="text-primary hover:text-primary/80 hover:bg-primary/10">
+                管理博主
+              </Button>
+            </Link>
+            <UserNav />
+          </div>
         </div>
       </header>
 
