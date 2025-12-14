@@ -12,6 +12,7 @@ import { toast } from 'sonner';
 import Link from 'next/link';
 import Image from 'next/image';
 import { SiteHeader } from '@/components/layout/site-header';
+import { DashboardStats } from '@/components/dashboard/dashboard-stats';
 
 export default function Home() {
   const [posts, setPosts] = useState<Post[]>([]);
@@ -19,11 +20,14 @@ export default function Home() {
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
   const [total, setTotal] = useState(0);
+  const [statsTrigger, setStatsTrigger] = useState(0);
 
-  const fetchPosts = async (pageNum: number, refresh = false) => {
+  const [timeRange, setTimeRange] = useState<'all' | '30' | '7'>('30');
+
+  const fetchPosts = async (pageNum: number, refresh = false, range = timeRange) => {
     try {
       setLoading(true);
-      const res = await fetch(`/api/feed?page=${pageNum}&limit=40`);
+      const res = await fetch(`/api/feed?page=${pageNum}&limit=40&days=${range}`);
       const payload = await res.json();
 
       if (!res.ok) throw new Error(payload.error);
@@ -51,10 +55,9 @@ export default function Home() {
     if (newPage < 1) return;
     setPage(newPage);
     window.scrollTo({ top: 0, behavior: 'smooth' });
-    // Logic for standard pagination (not infinite scroll anymore per wireframe "Page 1 2 3")
-    // My API supports offset. So I should clear posts and fetch new page.
+
     setLoading(true);
-    fetch(`/api/feed?page=${newPage}&limit=40`)
+    fetch(`/api/feed?page=${newPage}&limit=40&days=${timeRange}`)
       .then(res => res.json())
       .then(payload => {
         setPosts(payload.data);
@@ -66,6 +69,13 @@ export default function Home() {
   const handleRefresh = () => {
     setPage(1);
     fetchPosts(1, true);
+    setStatsTrigger(prev => prev + 1);
+  };
+
+  const handleTimeRangeChange = (range: 'all' | '30' | '7') => {
+    setTimeRange(range);
+    setPage(1);
+    fetchPosts(1, true, range);
   };
 
   return (
@@ -75,23 +85,60 @@ export default function Home() {
       <main className="flex-grow container mx-auto px-4 py-4 max-w-7xl space-y-12">
 
         {/* Add Creator Section */}
-        <section className="space-y-4 max-w-2xl mx-auto">
-          <div className="flex items-center gap-2 text-primary">
-            <Search className="w-4 h-4" />
-            <span className="text-sm font-medium">添加 Instagram 博主</span>
-          </div>
-          <div className="w-full">
-            <AddProfileForm onSuccess={() => handleRefresh()} secretKey="" className="w-full" />
+        <section className="w-full">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            {/* Left: Add Profile Form */}
+            <div className="lg:col-span-2 space-y-4">
+              <div className="flex items-center gap-2 text-primary">
+                <Search className="w-4 h-4" />
+                <span className="text-sm font-medium">添加 Instagram 博主</span>
+              </div>
+              <AddProfileForm onSuccess={() => handleRefresh()} secretKey="" className="w-full" />
+            </div>
+
+            {/* Right: Dashboard Stats */}
+            <div className="lg:col-span-1 pt-0 lg:pt-10">
+              <DashboardStats refreshKey={statsTrigger} />
+            </div>
           </div>
         </section>
 
         {/* Feed Section */}
         <section className="space-y-6">
-          <div className="flex items-center gap-2">
-            <span className="text-xl">🔥</span>
-            <h2 className="text-lg font-bold">
-              热门帖子 · <span className="text-muted-foreground font-normal">按 <span className="text-primary font-bold">点赞数</span> 排序</span>
-            </h2>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="flex items-center gap-2">
+              <span className="text-xl">🔥</span>
+              <h2 className="text-lg font-bold">
+                热门帖子 · <span className="text-muted-foreground font-normal">按 <span className="text-primary font-bold">点赞数</span> 排序</span>
+              </h2>
+            </div>
+
+            <div className="flex items-center gap-2 bg-secondary/30 p-1 rounded-lg border border-border/50">
+              <Button
+                variant={timeRange === 'all' ? 'secondary' : 'ghost'}
+                size="sm"
+                onClick={() => handleTimeRangeChange('all')}
+                className="h-8 text-xs font-medium"
+              >
+                全部
+              </Button>
+              <Button
+                variant={timeRange === '30' ? 'secondary' : 'ghost'}
+                size="sm"
+                onClick={() => handleTimeRangeChange('30')}
+                className="h-8 text-xs font-medium"
+              >
+                近30天
+              </Button>
+              <Button
+                variant={timeRange === '7' ? 'secondary' : 'ghost'}
+                size="sm"
+                onClick={() => handleTimeRangeChange('7')}
+                className="h-8 text-xs font-medium"
+              >
+                近7天
+              </Button>
+            </div>
           </div>
 
           {posts.length === 0 && !loading ? (

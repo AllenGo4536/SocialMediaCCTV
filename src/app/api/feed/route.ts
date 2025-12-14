@@ -17,7 +17,9 @@ export async function GET(req: NextRequest) {
 
     // Query: Posts joined with Profiles
     // Supabase `select` with join syntax: `*, profiles(*)`
-    const { data, count, error } = await supabaseAdmin
+    // Query: Posts joined with Profiles
+    // Supabase `select` with join syntax: `*, profiles(*)`
+    let query = supabaseAdmin
         .from('posts')
         .select(`
       *,
@@ -26,7 +28,20 @@ export async function GET(req: NextRequest) {
         avatar_url,
         full_name
       )
-    `, { count: 'exact' })
+    `, { count: 'exact' });
+
+    // Date Filtering
+    const days = searchParams.get('days');
+    if (days && days !== 'all') {
+        const daysNum = parseInt(days);
+        if (!isNaN(daysNum)) {
+            const date = new Date();
+            date.setDate(date.getDate() - daysNum);
+            query = query.gte('posted_at', date.toISOString());
+        }
+    }
+
+    const { data, count, error } = await query
         .order('like_count', { ascending: false }) // Requirement: Sorted by likes DESC
         .range(offset, offset + limit - 1);
 

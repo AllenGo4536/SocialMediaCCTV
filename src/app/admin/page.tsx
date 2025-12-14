@@ -77,6 +77,14 @@ export default function AdminPage() {
             <SiteHeader />
 
             <main className="container mx-auto px-4 py-8 max-w-4xl">
+                {/* Stats Header */}
+                <div className="mb-8">
+                    <h1 className="text-2xl font-bold mb-2">博主管理</h1>
+                    <p className="text-muted-foreground">
+                        平台当前共收录 <span className="text-primary font-bold text-lg mx-1">{profiles.length}</span> 位博主
+                    </p>
+                </div>
+
                 {/* Search Bar */}
                 <div className="mb-6 relative">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />

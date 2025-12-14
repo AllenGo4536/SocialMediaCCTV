@@ -3,7 +3,7 @@ import { Post } from '@/types';
 import { Card, CardContent } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
-import { Heart, MessageCircle, Play, Layers, Clock, ExternalLink } from 'lucide-react';
+import { Heart, MessageCircle, Play, Layers, Clock, ExternalLink, Eye } from 'lucide-react';
 import Image from 'next/image';
 import { useState } from 'react';
 
@@ -107,6 +107,12 @@ export function PostCard({ post }: PostCardProps) {
                             <MessageCircle className="w-4 h-4" />
                             <span>{formatNumber(post.comment_count)}</span>
                         </div>
+                        {(post.video_view_count || 0) > 0 && (
+                            <div className="flex items-center gap-1.5 text-muted-foreground">
+                                <Eye className="w-4 h-4" />
+                                <span>{formatNumber(post.video_view_count!)}</span>
+                            </div>
+                        )}
                     </div>
 
                     <a

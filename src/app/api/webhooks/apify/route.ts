@@ -83,14 +83,51 @@ export async function POST(req: NextRequest) {
         }
 
         if (postsToUpsert.length > 0) {
-            const { error } = await supabaseAdmin
+            // Upsert posts and get the new/updated IDs
+            const { data: upsertedPosts, error } = await supabaseAdmin
                 .from('posts')
-                .upsert(postsToUpsert, { onConflict: 'external_id' });
+                .upsert(postsToUpsert, { onConflict: 'external_id' })
+                .select('id, posted_at, like_count, comment_count, video_view_count, video_play_count');
 
             if (error) {
                 console.error('Upsert error:', error);
                 return NextResponse.json({ error: error.message }, { status: 500 });
             }
+
+            // --- Snapshot Logic ---
+            if (upsertedPosts && upsertedPosts.length > 0) {
+                const now = new Date();
+                const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+
+                const snapshotsToInsert = upsertedPosts
+                    .filter(post => {
+                        // Filter: Only track metrics for posts posted within the last 30 days
+                        const postedAt = new Date(post.posted_at);
+                        return postedAt > thirtyDaysAgo;
+                    })
+                    .map(post => ({
+                        post_id: post.id,
+                        like_count: post.like_count,
+                        comment_count: post.comment_count,
+                        video_view_count: post.video_view_count,
+                        video_play_count: post.video_play_count,
+                        recorded_at: now.toISOString()
+                    }));
+
+                if (snapshotsToInsert.length > 0) {
+                    const { error: snapshotError } = await supabaseAdmin
+                        .from('post_snapshots')
+                        .insert(snapshotsToInsert);
+
+                    if (snapshotError) {
+                        console.error('Snapshot insert error:', snapshotError);
+                        // We don't fail the whole request if snapshot fails, but we log it
+                    } else {
+                        console.log(`Recorded ${snapshotsToInsert.length} snapshots`);
+                    }
+                }
+            }
+            // ----------------------
         }
 
         return NextResponse.json({ success: true, count: postsToUpsert.length });
