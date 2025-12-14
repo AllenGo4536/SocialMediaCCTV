@@ -47,7 +47,7 @@ export async function GET(req: NextRequest) {
         // User said "Every 24h refresh". 
         // Let's scrape 5-10 latest posts per profile to catch up.
 
-        const run = await triggerInstagramScrape(usernames, 10);
+        const run = await triggerInstagramScrape(usernames, 5);
 
         return NextResponse.json({
             success: true,
