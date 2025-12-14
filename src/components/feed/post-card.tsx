@@ -47,10 +47,11 @@ export function PostCard({ post }: PostCardProps) {
             {/* Cover Image */}
             <CardContent className="p-0 relative aspect-[4/5] bg-muted">
                 <img
-                    src={post.display_url}
+                    src={`/api/proxy/image?url=${encodeURIComponent(post.display_url || '')}`}
                     alt={post.caption || 'Instagram Post'}
                     className="object-cover w-full h-full transition-opacity group-hover:opacity-90"
                     referrerPolicy="no-referrer"
+                    loading="lazy"
                 />
 
                 {/* Type Badges */}
