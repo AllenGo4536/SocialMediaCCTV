@@ -46,12 +46,10 @@ export function PostCard({ post }: PostCardProps) {
         <Card className="overflow-hidden h-full flex flex-col border border-border bg-card shadow-sm rounded-xl group transition-all hover:shadow-md">
             {/* Cover Image */}
             <CardContent className="p-0 relative aspect-[4/5] bg-muted">
-                <Image
+                <img
                     src={post.display_url}
                     alt={post.caption || 'Instagram Post'}
-                    fill
-                    className="object-cover transition-opacity group-hover:opacity-90"
-                    unoptimized
+                    className="object-cover w-full h-full transition-opacity group-hover:opacity-90"
                     referrerPolicy="no-referrer"
                 />
 
