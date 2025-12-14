@@ -52,6 +52,7 @@ export function PostCard({ post }: PostCardProps) {
                     fill
                     className="object-cover transition-opacity group-hover:opacity-90"
                     unoptimized
+                    referrerPolicy="no-referrer"
                 />
 
                 {/* Type Badges */}
