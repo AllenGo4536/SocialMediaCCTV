@@ -132,7 +132,7 @@ export function AddProfileForm({ onSuccess, className }: AddProfileFormProps) {
                     size="lg"
                     className="h-12 px-8 font-bold text-base bg-primary text-primary-foreground hover:bg-primary/90 rounded-lg border border-primary/20 shadow-[0_0_15px_rgba(139,92,246,0.3)] hover:shadow-[0_0_20px_rgba(139,92,246,0.5)] transition-all"
                 >
-                    {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <span>添加 (+)</span>}
+                    {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <span>添加博主</span>}
                 </Button>
             </form>
 
