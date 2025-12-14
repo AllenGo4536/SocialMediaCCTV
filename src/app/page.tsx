@@ -11,6 +11,7 @@ import { Loader2, ArrowLeft, ArrowRight, Search } from 'lucide-react';
 import { toast } from 'sonner';
 import Link from 'next/link';
 import Image from 'next/image';
+import { SiteHeader } from '@/components/layout/site-header';
 
 export default function Home() {
   const [posts, setPosts] = useState<Post[]>([]);
@@ -69,33 +70,7 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-background flex flex-col font-sans">
-      {/* Header */}
-      <header className="border-b border-border bg-background py-4 sticky top-0 z-10 w-full mb-8">
-        <div className="container mx-auto px-4 flex justify-between items-start">
-          <div>
-            <div className="flex flex-col gap-1">
-              <div className="flex items-center gap-3">
-                <Image src="/logo.png" alt="ViraX" width={120} height={40} className="h-8 w-auto" priority />
-                <span className="text-lg font-semibold text-muted-foreground/80 border-l border-border pl-3 tracking-wide">
-                  内部工具
-                </span>
-              </div>
-              <p className="text-muted-foreground text-xs font-medium tracking-wider pl-1 uppercase opacity-70">
-                社媒博主定向监控
-              </p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-4">
-            <Link href="/admin">
-              <Button variant="ghost" className="text-primary hover:text-primary/80 hover:bg-primary/10">
-                管理博主
-              </Button>
-            </Link>
-            <UserNav />
-          </div>
-        </div>
-      </header>
+      <SiteHeader />
 
       <main className="flex-grow container mx-auto px-4 py-4 max-w-7xl space-y-12">
 

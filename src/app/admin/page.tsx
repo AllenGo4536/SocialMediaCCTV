@@ -9,8 +9,7 @@ import { Trash2, Loader2, ArrowLeft, CheckCircle2, Search } from 'lucide-react';
 import Link from 'next/link';
 import { toast } from 'sonner';
 import { Input } from '@/components/ui/input';
-import Image from 'next/image';
-import { UserNav } from '@/components/auth/user-nav';
+import { SiteHeader } from '@/components/layout/site-header';
 import {
     AlertDialog,
     AlertDialogAction,
@@ -24,6 +23,7 @@ import {
 } from "@/components/ui/alert-dialog"
 
 export default function AdminPage() {
+    // ... (keep state)
     const [profiles, setProfiles] = useState<Profile[]>([]);
     const [loading, setLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState('');
@@ -74,31 +74,7 @@ export default function AdminPage() {
 
     return (
         <div className="min-h-screen bg-background font-sans">
-            {/* Header */}
-            <header className="border-b border-border bg-background py-4 sticky top-0 z-10 w-full mb-8">
-                <div className="container mx-auto px-4 flex justify-between items-start">
-                    <div>
-                        <div className="flex flex-col gap-1">
-                            <div className="flex items-center gap-3">
-                                <Image src="/logo.png" alt="ViraX" width={120} height={40} className="h-8 w-auto" priority />
-                                <span className="text-lg font-semibold text-muted-foreground/80 border-l border-border pl-3 tracking-wide">
-                                    内部工具
-                                </span>
-                            </div>
-                            <p className="text-muted-foreground text-xs font-medium tracking-wider pl-1 uppercase opacity-70">
-                                社媒博主定向监控
-                            </p>
-                        </div>
-                    </div>
-
-                    <div className="flex items-center gap-4">
-                        <Link href="/" className="text-sm font-medium text-muted-foreground hover:text-primary transition-colors flex items-center gap-1">
-                            <span>← 返回 <span className="text-primary">首页</span></span>
-                        </Link>
-                        <UserNav />
-                    </div>
-                </div>
-            </header>
+            <SiteHeader />
 
             <main className="container mx-auto px-4 py-8 max-w-4xl">
                 {/* Search Bar */}
