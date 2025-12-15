@@ -3,15 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
 import { triggerInstagramScrape } from '@/lib/apify';
 
-const SECRET_KEY = process.env.VIRAX_SECRET_KEY;
 
-function checkAuth(req: NextRequest) {
-    const headerSecret = req.headers.get('x-virax-secret');
-    if (SECRET_KEY && headerSecret !== SECRET_KEY) {
-        return false;
-    }
-    return true;
-}
 
 export async function GET(req: NextRequest) {
     // if (!checkAuth(req)) {
@@ -39,11 +31,19 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-    if (!checkAuth(req)) {
-        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
     try {
+        const authHeader = req.headers.get('Authorization');
+        if (!authHeader) {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
+
+        const token = authHeader.replace('Bearer ', '');
+        const { data: { user }, error: userError } = await supabaseAdmin.auth.getUser(token);
+
+        if (!user || userError) {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
+
         const { username } = await req.json();
 
         if (!username) {
@@ -71,6 +71,7 @@ export async function POST(req: NextRequest) {
                 username,
                 profile_url: profileUrl,
                 full_name: username, // Update later via webhook?
+                created_by: user.id
             })
             .select()
             .single();

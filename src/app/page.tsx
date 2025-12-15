@@ -93,7 +93,7 @@ export default function Home() {
                 <Search className="w-4 h-4" />
                 <span className="text-sm font-medium">添加 Instagram 博主</span>
               </div>
-              <AddProfileForm onSuccess={() => handleRefresh()} secretKey="" className="w-full" />
+              <AddProfileForm onSuccess={() => handleRefresh()} className="w-full" />
             </div>
 
             {/* Right: Dashboard Stats */}

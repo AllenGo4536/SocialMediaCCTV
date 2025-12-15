@@ -18,7 +18,6 @@ import {
 
 interface AddProfileFormProps {
     onSuccess: () => void;
-    secretKey: string;
     className?: string;
 }
 
@@ -26,7 +25,7 @@ export function AddProfileForm({ onSuccess, className }: AddProfileFormProps) {
     const [url, setUrl] = useState('');
     const [loading, setLoading] = useState(false);
     const [showSuccessModal, setShowSuccessModal] = useState(false);
-    const { user, openAuthModal } = useAuth();
+    const { user, session, openAuthModal } = useAuth();
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -53,24 +52,22 @@ export function AddProfileForm({ onSuccess, className }: AddProfileFormProps) {
 
         setLoading(true);
         try {
-            const secret = localStorage.getItem('virax_secret');
-            if (!secret) {
-                const input = prompt("请输入管理密钥以添加博主:", "");
-                if (!input) {
-                    setLoading(false);
-                    return;
-                }
-                localStorage.setItem('virax_secret', input);
+
+
+            const headers: HeadersInit = {
+                'Content-Type': 'application/json',
+            };
+
+            if (session?.access_token) {
+                headers['Authorization'] = `Bearer ${session.access_token}`;
             }
 
             const res = await fetch('/api/profiles', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'x-virax-secret': localStorage.getItem('virax_secret') || ''
-                },
+                headers,
                 body: JSON.stringify({ username })
             });
+
 
             const data = await res.json();
 
@@ -100,9 +97,7 @@ export function AddProfileForm({ onSuccess, className }: AddProfileFormProps) {
         } catch (err: unknown) {
             const errorMessage = err instanceof Error ? err.message : 'Unknown error';
             toast.error(errorMessage);
-            if (errorMessage === 'Unauthorized') {
-                localStorage.removeItem('virax_secret');
-            }
+
         } finally {
             setLoading(false);
         }
