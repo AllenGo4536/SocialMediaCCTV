@@ -124,12 +124,18 @@ export default function AdminPage() {
                                         <AvatarFallback>{profile.username[0].toUpperCase()}</AvatarFallback>
                                     </Avatar>
 
-                                    <div className="flex items-center gap-3">
-                                        <span className="font-mono text-foreground">{profile.username}</span>
-                                        {/* Verified Badge logic if we had it, hardcoded style for now based on wireframe */}
-                                        <span className="text-xs px-2 py-0.5 rounded-full bg-secondary text-muted-foreground hidden sm:inline-block">
-                                            已认证
-                                        </span>
+                                    <div className="flex flex-col gap-1">
+                                        <div className="flex items-center gap-3">
+                                            <span className="font-mono text-foreground">{profile.username}</span>
+                                            <span className="text-xs px-2 py-0.5 rounded-full bg-secondary text-muted-foreground hidden sm:inline-block">
+                                                已认证
+                                            </span>
+                                        </div>
+                                        {profile.creator_email && (
+                                            <span className="text-xs text-muted-foreground">
+                                                Added by: <span className="font-mono text-primary/80">{profile.creator_email}</span>
+                                            </span>
+                                        )}
                                     </div>
                                 </div>
 

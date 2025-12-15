@@ -18,7 +18,7 @@ export async function GET(req: NextRequest) {
     // But wait, the Feed needs to know which profiles exist? Or just fetch posts?
     // Feed fetches posts. Admin fetches profiles.
 
-    const { data, error } = await supabaseAdmin
+    const { data: profiles, error } = await supabaseAdmin
         .from('profiles')
         .select('*')
         .order('created_at', { ascending: false });
@@ -27,7 +27,33 @@ export async function GET(req: NextRequest) {
         return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    return NextResponse.json(data);
+    // Identify needed users
+    const userIds = profiles
+        .map(p => p.created_by)
+        .filter(Boolean); // Filter null/undefined
+
+    if (userIds.length > 0) {
+        // Fetch emails from app_users
+        const { data: users } = await supabaseAdmin
+            .from('app_users')
+            .select('id, email')
+            .in('id', userIds);
+
+        // Map emails back to profiles
+        if (users) {
+            const userMap = new Map(users.map(u => [u.id, u.email]));
+
+            // Mutate profile objects to add creator_email
+            // @ts-ignore - Supabase types might not have creator_email yet since we didn't update generated types, but our internal type has it.
+            profiles.forEach(p => {
+                if (p.created_by && userMap.has(p.created_by)) {
+                    p.creator_email = userMap.get(p.created_by);
+                }
+            });
+        }
+    }
+
+    return NextResponse.json(profiles);
 }
 
 export async function POST(req: NextRequest) {

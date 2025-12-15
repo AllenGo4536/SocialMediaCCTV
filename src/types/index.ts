@@ -7,6 +7,8 @@ export interface Profile {
     avatar_url?: string;
     is_verified?: boolean;
     created_at: string;
+    created_by?: string;
+    creator_email?: string;
 }
 
 export interface Post {
