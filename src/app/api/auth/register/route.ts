@@ -13,7 +13,7 @@ export async function POST(req: Request) {
         // 1. Verify Invite Code
         const { data: codeData, error: codeError } = await supabaseAdmin
             .from('invite_codes')
-            .select('id, is_used')
+            .select('id, is_used, max_uses, uses_count')
             .eq('code', inviteCode)
             .single()
 
@@ -21,28 +21,44 @@ export async function POST(req: Request) {
             return NextResponse.json({ error: '无效的邀请码' }, { status: 400 })
         }
 
-        if (codeData.is_used) {
-            return NextResponse.json({ error: '邀请码已被使用' }, { status: 400 })
+        // Check limits
+        if (codeData.uses_count >= codeData.max_uses) {
+             return NextResponse.json({ error: '邀请码已达到最大使用次数' }, { status: 400 })
         }
 
         // 2. Create User
         const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
             email,
             password,
-            email_confirm: true // Auto confirm for now as we trust the invite code wrapper
+            email_confirm: true 
         })
 
         if (authError) {
             return NextResponse.json({ error: authError.message }, { status: 400 })
         }
 
-        // 3. Mark Invite Code as Used
+        // 3. Record Usage
+        // Insert into usage history
+        const { error: usageError } = await supabaseAdmin
+            .from('invite_usages')
+            .insert({
+                invite_code_id: codeData.id,
+                user_id: authData.user.id
+            })
+            
+        if (usageError) {
+             console.error('Failed to record invite usage:', usageError)
+        }
+
+        // Increment count
         const { error: updateError } = await supabaseAdmin
             .from('invite_codes')
             .update({
-                is_used: true,
-                used_by: authData.user.id,
-                used_at: new Date().toISOString()
+                uses_count: codeData.uses_count + 1,
+                // Keep is_used for backward compatibility or simple checks if needed, 
+                // but strictly speaking we rely on counts now. 
+                // Let's set is_used to true if it reaches max just in case.
+                is_used: (codeData.uses_count + 1) >= codeData.max_uses
             })
             .eq('id', codeData.id)
 
