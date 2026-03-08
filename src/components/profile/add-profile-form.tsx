@@ -16,7 +16,6 @@ import {
     DialogHeader,
     DialogTitle,
     DialogDescription,
-    DialogTrigger,
 } from "@/components/ui/dialog";
 
 interface AddProfileFormProps {
@@ -166,17 +165,22 @@ export function AddProfileForm({ onSuccess, className }: AddProfileFormProps) {
     return (
         <div className={cn("w-full", className)}>
             <Dialog open={open} onOpenChange={setOpen}>
-                <DialogTrigger asChild>
-                    <Button
-                        size="lg"
-                        className="h-12 px-8 font-bold text-base bg-primary text-primary-foreground hover:bg-primary/90 rounded-lg border border-primary/20 shadow-[0_0_15px_rgba(139,92,246,0.3)] hover:shadow-[0_0_20px_rgba(139,92,246,0.5)] transition-all"
-                    >
-                        <Plus className="w-4 h-4 mr-1" />
-                        添加达人
-                    </Button>
-                </DialogTrigger>
+                <Button
+                    size="lg"
+                    className="h-12 px-8 font-bold text-base bg-primary text-primary-foreground hover:bg-primary/90 rounded-lg border border-primary/20 shadow-[0_0_15px_rgba(139,92,246,0.3)] hover:shadow-[0_0_20px_rgba(139,92,246,0.5)] transition-all"
+                    onClick={() => {
+                        if (!user) {
+                            openAuthModal();
+                            return;
+                        }
+                        setOpen(true);
+                    }}
+                >
+                    <Plus className="w-4 h-4 mr-1" />
+                    添加达人
+                </Button>
 
-                <DialogContent className="sm:max-w-2xl">
+                <DialogContent className="sm:max-w-2xl max-h-[85vh] overflow-y-auto p-4 sm:p-6">
                     <DialogHeader>
                         <DialogTitle>添加达人</DialogTitle>
                         <DialogDescription>
@@ -184,10 +188,10 @@ export function AddProfileForm({ onSuccess, className }: AddProfileFormProps) {
                         </DialogDescription>
                     </DialogHeader>
 
-                    <form onSubmit={handleSubmit} className="space-y-4 w-full">
+                    <form onSubmit={handleSubmit} className="space-y-3 sm:space-y-4 w-full">
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                             <select
-                                className="h-11 rounded-lg border border-border bg-background px-3 text-sm"
+                                className="h-10 sm:h-11 rounded-lg border border-border bg-background px-3 text-sm"
                                 value={platform}
                                 onChange={(e) => setPlatform(e.target.value as Platform)}
                                 disabled={loading}
@@ -199,14 +203,14 @@ export function AddProfileForm({ onSuccess, className }: AddProfileFormProps) {
                                 ))}
                             </select>
                             <Input
-                                className="h-11 bg-background border-border font-mono text-foreground placeholder:text-muted-foreground/40"
+                                className="h-10 sm:h-11 bg-background border-border font-mono text-sm text-foreground placeholder:text-muted-foreground/40"
                                 placeholder={inputPlaceholder}
                                 value={username}
                                 onChange={(e) => setUsername(e.target.value)}
                                 disabled={loading}
                             />
                             <Input
-                                className="h-11 bg-background border-border font-mono text-foreground placeholder:text-muted-foreground/40"
+                                className="h-10 sm:h-11 bg-background border-border font-mono text-sm text-foreground placeholder:text-muted-foreground/40"
                                 placeholder={urlPlaceholder}
                                 value={profileUrl}
                                 onChange={(e) => setProfileUrl(e.target.value)}
@@ -214,10 +218,10 @@ export function AddProfileForm({ onSuccess, className }: AddProfileFormProps) {
                             />
                         </div>
 
-                        <div className="p-4 border border-border rounded-lg bg-secondary/20 space-y-4">
+                        <div className="p-3 sm:p-4 border border-border rounded-lg bg-secondary/20 space-y-3 sm:space-y-4">
                             <div className="space-y-2">
                                 <p className="text-sm font-semibold">对标类型（必选）</p>
-                                <div className="flex flex-wrap gap-3 text-sm">
+                                <div className="flex flex-wrap gap-2 sm:gap-3 text-sm">
                                     <label className="inline-flex items-center gap-2">
                                         <input
                                             type="radio"
@@ -251,7 +255,7 @@ export function AddProfileForm({ onSuccess, className }: AddProfileFormProps) {
                                 <p className={cn("text-sm font-semibold", !isIpBenchmark && "text-muted-foreground")}>
                                     文化（仅 IP 对标）
                                 </p>
-                                <div className="flex flex-wrap gap-3 text-sm">
+                                <div className="flex flex-wrap gap-2 sm:gap-3 text-sm">
                                     {cultureTagOptions.map((option) => (
                                         <label key={option.value} className="inline-flex items-center gap-2">
                                             <input
@@ -270,7 +274,7 @@ export function AddProfileForm({ onSuccess, className }: AddProfileFormProps) {
                                 <p className={cn("text-sm font-semibold", !isIpBenchmark && "text-muted-foreground")}>
                                     内容类型（仅 IP 对标，可多选）
                                 </p>
-                                <div className="flex flex-wrap gap-3 text-sm">
+                                <div className="flex flex-wrap gap-2 sm:gap-3 text-sm">
                                     {contentTagOptions.map((option) => (
                                         <label key={option.value} className="inline-flex items-center gap-2">
                                             <input
@@ -286,18 +290,22 @@ export function AddProfileForm({ onSuccess, className }: AddProfileFormProps) {
                             </div>
                         </div>
 
-                        <div className="p-4 bg-secondary/30 rounded-lg border border-border/50">
-                            <p className="text-sm font-semibold text-primary mb-2 flex items-center gap-2">
+                        <details className="group">
+                            <summary className="p-3 sm:p-4 bg-secondary/30 rounded-lg border border-border/50 cursor-pointer list-none flex items-center gap-2">
                                 <span className="w-1 h-4 bg-primary rounded-full inline-block"></span>
-                                填写说明
-                            </p>
-                            <ul className="text-sm text-muted-foreground space-y-2 list-disc list-inside">
-                                <li>用户名与主页链接都需要填写。</li>
-                                <li>YouTube 仅支持频道页（如 <span className="font-mono text-xs bg-muted px-1 py-0.5 rounded text-foreground">/ @handle</span>、<span className="font-mono text-xs bg-muted px-1 py-0.5 rounded text-foreground">/channel/xxx</span>）。</li>
-                                <li>对标类型为必选；选择“美学对标”后不会显示子标签。</li>
-                                <li>添加后系统会尝试抓取最新 5 条内容，通常约 1 分钟内可见。</li>
-                            </ul>
-                        </div>
+                                <span className="text-sm font-semibold text-primary">填写说明</span>
+                                <span className="ml-auto text-xs text-muted-foreground group-open:hidden">展开</span>
+                                <span className="ml-auto text-xs text-muted-foreground hidden group-open:inline">收起</span>
+                            </summary>
+                            <div className="px-3 sm:px-4 pb-3 pt-2">
+                                <ul className="text-xs sm:text-sm text-muted-foreground space-y-1.5 list-disc list-inside">
+                                    <li>用户名与主页链接都需要填写。</li>
+                                    <li>YouTube 仅支持频道页（如 <span className="font-mono text-xs bg-muted px-1 py-0.5 rounded text-foreground">/ @handle</span>、<span className="font-mono text-xs bg-muted px-1 py-0.5 rounded text-foreground">/channel/xxx</span>）。</li>
+                                    <li>对标类型为必选；选择&ldquo;美学对标&rdquo;后不会显示子标签。</li>
+                                    <li>添加后系统会尝试抓取最新 5 条内容，通常约 1 分钟内可见。</li>
+                                </ul>
+                            </div>
+                        </details>
 
                         <DialogFooter>
                             <Button
@@ -318,7 +326,7 @@ export function AddProfileForm({ onSuccess, className }: AddProfileFormProps) {
                         </DialogFooter>
                     </form>
                 </DialogContent>
-            </Dialog>
-        </div>
+            </Dialog >
+        </div >
     );
 }
