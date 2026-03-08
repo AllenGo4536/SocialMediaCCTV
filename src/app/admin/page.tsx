@@ -5,11 +5,12 @@ import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Profile } from '@/types';
-import { Trash2, Loader2, ArrowLeft, CheckCircle2, Search } from 'lucide-react';
+import { Trash2, Loader2, Search } from 'lucide-react';
 import Link from 'next/link';
 import { toast } from 'sonner';
 import { Input } from '@/components/ui/input';
 import { SiteHeader } from '@/components/layout/site-header';
+import { Badge } from '@/components/ui/badge';
 import {
     AlertDialog,
     AlertDialogAction,
@@ -39,7 +40,7 @@ export default function AdminPage() {
             if (!res.ok) throw new Error('Failed to fetch profiles');
             const data = await res.json();
             setProfiles(data);
-        } catch (err) {
+        } catch {
             toast.error("Failed to load profiles");
         } finally {
             setLoading(false);
@@ -63,7 +64,7 @@ export default function AdminPage() {
 
             toast.success(`Removed @${username}`);
             setProfiles(prev => prev.filter(p => p.id !== id));
-        } catch (err) {
+        } catch {
             toast.error("Delete failed");
         }
     };
@@ -127,9 +128,9 @@ export default function AdminPage() {
                                     <div className="flex flex-col gap-1">
                                         <div className="flex items-center gap-3">
                                             <span className="font-mono text-foreground">{profile.username}</span>
-                                            <span className="text-xs px-2 py-0.5 rounded-full bg-secondary text-muted-foreground hidden sm:inline-block">
-                                                已认证
-                                            </span>
+                                            <Badge variant="secondary" className="text-[10px] uppercase">
+                                                {profile.platform}
+                                            </Badge>
                                         </div>
                                         {profile.creator_email && (
                                             <span className="text-xs text-muted-foreground">

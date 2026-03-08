@@ -12,6 +12,8 @@ export const apifyClient = new ApifyClient({
 });
 
 export const INSTAGRAM_SCRAPER_ACTOR_ID = 'apify/instagram-post-scraper';
+export const TIKTOK_SCRAPER_ACTOR_ID = 'clockworks/tiktok-scraper';
+export const YOUTUBE_SCRAPER_ACTOR_ID = 'streamers/youtube-scraper';
 
 /**
  * Triggers an Instagram scrape for a list of usernames.
@@ -39,6 +41,74 @@ export async function triggerInstagramScrape(usernames: string[], limit: number 
     // "username": ["..."]
 
     const run = await apifyClient.actor(INSTAGRAM_SCRAPER_ACTOR_ID).start(input, {
+        webhooks: webhookUrl ? [
+            {
+                eventTypes: ['ACTOR.RUN.SUCCEEDED'],
+                requestUrl: webhookUrl,
+            }
+        ] : undefined
+    });
+
+    return run;
+}
+
+/**
+ * Triggers a TikTok scrape for a list of usernames.
+ * @param usernames Array of TikTok usernames to scrape
+ * @param limit Max videos per profile
+ */
+export async function triggerTikTokScrape(usernames: string[], limit: number = 5) {
+    const webhookUrl = process.env.NEXT_PUBLIC_BASE_URL
+        ? `${process.env.NEXT_PUBLIC_BASE_URL}/api/webhooks/apify`
+        : undefined;
+
+    const input = {
+        profiles: usernames,
+        resultsPerPage: limit,
+        profileScrapeSections: ['videos'],
+        profileSorting: 'latest',
+        excludePinnedPosts: false,
+        scrapeRelatedVideos: false,
+        shouldDownloadAvatars: false,
+        shouldDownloadCovers: false,
+        shouldDownloadMusicCovers: false,
+        shouldDownloadSlideshowImages: false,
+        shouldDownloadSubtitles: false,
+        shouldDownloadVideos: false,
+        proxyCountryCode: 'None',
+    };
+
+    const run = await apifyClient.actor(TIKTOK_SCRAPER_ACTOR_ID).start(input, {
+        webhooks: webhookUrl ? [
+            {
+                eventTypes: ['ACTOR.RUN.SUCCEEDED'],
+                requestUrl: webhookUrl,
+            }
+        ] : undefined
+    });
+
+    return run;
+}
+
+/**
+ * Triggers a YouTube scrape for a list of channel/profile URLs.
+ * @param startUrls Array of YouTube channel/profile URLs
+ * @param limit Max regular videos per URL
+ */
+export async function triggerYoutubeScrape(startUrls: string[], limit: number = 5) {
+    const webhookUrl = process.env.NEXT_PUBLIC_BASE_URL
+        ? `${process.env.NEXT_PUBLIC_BASE_URL}/api/webhooks/apify`
+        : undefined;
+
+    const input = {
+        startUrls: startUrls.map((url) => ({ url })),
+        maxResults: limit,
+        maxResultsShorts: limit,
+        maxResultStreams: 0,
+        sortVideosBy: 'NEWEST',
+    };
+
+    const run = await apifyClient.actor(YOUTUBE_SCRAPER_ACTOR_ID).start(input, {
         webhooks: webhookUrl ? [
             {
                 eventTypes: ['ACTOR.RUN.SUCCEEDED'],

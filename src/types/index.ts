@@ -1,6 +1,7 @@
 
 export interface Profile {
     id: string;
+    platform: 'instagram' | 'tiktok' | 'youtube';
     username: string;
     full_name?: string;
     profile_url: string;
@@ -9,10 +10,18 @@ export interface Profile {
     created_at: string;
     created_by?: string;
     creator_email?: string;
+    tags?: ProfileTag[];
+}
+
+export interface ProfileTag {
+    id: string;
+    label: string;
+    group: 'benchmark_type' | 'culture' | 'content_type';
 }
 
 export interface Post {
     id: string;
+    platform: 'instagram' | 'tiktok' | 'youtube';
     external_id: string;
     short_code?: string;
     type: 'Image' | 'Video' | 'Sidecar';

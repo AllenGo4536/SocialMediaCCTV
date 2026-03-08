@@ -5,29 +5,96 @@ import { useEffect, useState } from 'react';
 import { PostCard } from '@/components/feed/post-card';
 import { AddProfileForm } from '@/components/profile/add-profile-form';
 import { Button } from '@/components/ui/button';
-import { UserNav } from '@/components/auth/user-nav';
-import { Post } from '@/types';
-import { Loader2, ArrowLeft, ArrowRight, Search } from 'lucide-react';
+import { Post, Profile } from '@/types';
+import { Loader2, FilterX } from 'lucide-react';
 import { toast } from 'sonner';
-import Link from 'next/link';
-import Image from 'next/image';
 import { SiteHeader } from '@/components/layout/site-header';
-import { DashboardStats } from '@/components/dashboard/dashboard-stats';
+
+interface FeedFilters {
+  platforms: Array<'instagram' | 'tiktok' | 'youtube'>;
+  benchmarkTypes: string[];
+  cultureTags: string[];
+  contentTags: string[];
+  uploaders: string[];
+}
+
+const initialFilters: FeedFilters = {
+  platforms: [],
+  benchmarkTypes: [],
+  cultureTags: [],
+  contentTags: [],
+  uploaders: [],
+};
+
+const platformOptions = [
+  { value: 'instagram', label: 'Instagram' },
+  { value: 'tiktok', label: 'TikTok' },
+  { value: 'youtube', label: 'YouTube' },
+] as const;
+
+const benchmarkOptions = [
+  { value: 'ip_benchmark', label: 'IP对标' },
+  { value: 'aesthetic_benchmark', label: '美学对标' },
+];
+
+const cultureOptions = [
+  { value: 'culture_me', label: '中东' },
+  { value: 'culture_west', label: '欧美' },
+];
+
+const contentOptions = [
+  { value: 'style_performance_camera', label: '穿搭/唱跳/运镜' },
+  { value: 'pov', label: 'POV' },
+  { value: 'daily_life', label: '日常记录' },
+  { value: 'asmr', label: 'ASMR' },
+  { value: 'virtual_idol', label: '虚拟偶像' },
+];
+
+function buildFeedUrl(pageNum: number, range: 'all' | '30' | '7', filters: FeedFilters) {
+  const params = new URLSearchParams({
+    page: String(pageNum),
+    limit: '40',
+    days: range,
+  });
+
+  if (filters.platforms.length > 0) {
+    params.set('platforms', filters.platforms.join(','));
+  }
+  if (filters.benchmarkTypes.length > 0) {
+    params.set('benchmarkTypes', filters.benchmarkTypes.join(','));
+  }
+  if (filters.cultureTags.length > 0) {
+    params.set('cultureTags', filters.cultureTags.join(','));
+  }
+  if (filters.contentTags.length > 0) {
+    params.set('contentTags', filters.contentTags.join(','));
+  }
+  if (filters.uploaders.length > 0) {
+    params.set('uploaders', filters.uploaders.join(','));
+  }
+
+  return `/api/feed?${params.toString()}`;
+}
 
 export default function Home() {
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
-  const [total, setTotal] = useState(0);
-  const [statsTrigger, setStatsTrigger] = useState(0);
 
   const [timeRange, setTimeRange] = useState<'all' | '30' | '7'>('30');
+  const [filters, setFilters] = useState<FeedFilters>(initialFilters);
+  const [uploaderOptions, setUploaderOptions] = useState<string[]>([]);
 
-  const fetchPosts = async (pageNum: number, refresh = false, range = timeRange) => {
+  const fetchPosts = async (
+    pageNum: number,
+    refresh = false,
+    range = timeRange,
+    nextFilters = filters
+  ) => {
     try {
       setLoading(true);
-      const res = await fetch(`/api/feed?page=${pageNum}&limit=40&days=${range}`);
+      const res = await fetch(buildFeedUrl(pageNum, range, nextFilters));
       const payload = await res.json();
 
       if (!res.ok) throw new Error(payload.error);
@@ -39,9 +106,9 @@ export default function Home() {
       }
 
       setHasMore(payload.meta.hasMore);
-      setTotal(payload.meta.total);
-    } catch (err: any) {
-      toast.error("Failed to load feed: " + err.message);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Unknown error';
+      toast.error("Failed to load feed: " + message);
     } finally {
       setLoading(false);
     }
@@ -49,6 +116,19 @@ export default function Home() {
 
   useEffect(() => {
     fetchPosts(1, true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    fetch('/api/profiles')
+      .then((res) => res.json())
+      .then((profiles: Profile[]) => {
+        const emails = [...new Set(profiles.map((profile) => profile.creator_email).filter(Boolean))] as string[];
+        setUploaderOptions(emails);
+      })
+      .catch(() => {
+        setUploaderOptions([]);
+      });
   }, []);
 
   const handlePageChange = (newPage: number) => {
@@ -56,27 +136,60 @@ export default function Home() {
     setPage(newPage);
     window.scrollTo({ top: 0, behavior: 'smooth' });
 
-    setLoading(true);
-    fetch(`/api/feed?page=${newPage}&limit=40&days=${timeRange}`)
-      .then(res => res.json())
-      .then(payload => {
-        setPosts(payload.data);
-        setHasMore(payload.meta.hasMore);
-        setLoading(false);
-      });
+    fetchPosts(newPage, true);
   };
 
   const handleRefresh = () => {
     setPage(1);
     fetchPosts(1, true);
-    setStatsTrigger(prev => prev + 1);
   };
 
   const handleTimeRangeChange = (range: 'all' | '30' | '7') => {
     setTimeRange(range);
     setPage(1);
-    fetchPosts(1, true, range);
+    fetchPosts(1, true, range, filters);
   };
+
+  const toggleFilter = (
+    key: keyof Omit<FeedFilters, 'uploaders'>,
+    value: string
+  ) => {
+    const current = filters[key] as string[];
+    const exists = current.includes(value);
+    const nextValues = exists ? current.filter((item) => item !== value) : [...current, value];
+    const nextFilters = { ...filters, [key]: nextValues };
+    setFilters(nextFilters);
+    setPage(1);
+    fetchPosts(1, true, timeRange, nextFilters);
+  };
+
+  const togglePlatformFilter = (value: 'instagram' | 'tiktok' | 'youtube') => {
+    const nextPlatforms = filters.platforms[0] === value ? [] : [value];
+    const nextFilters = { ...filters, platforms: nextPlatforms };
+    setFilters(nextFilters);
+    setPage(1);
+    fetchPosts(1, true, timeRange, nextFilters);
+  };
+
+  const handleUploaderChange = (email: string) => {
+    const nextFilters = { ...filters, uploaders: email ? [email] : [] };
+    setFilters(nextFilters);
+    setPage(1);
+    fetchPosts(1, true, timeRange, nextFilters);
+  };
+
+  const clearFilters = () => {
+    setFilters(initialFilters);
+    setPage(1);
+    fetchPosts(1, true, timeRange, initialFilters);
+  };
+
+  const hasActiveFilters =
+    filters.platforms.length > 0 ||
+    filters.benchmarkTypes.length > 0 ||
+    filters.cultureTags.length > 0 ||
+    filters.contentTags.length > 0 ||
+    filters.uploaders.length > 0;
 
   return (
     <div className="min-h-screen bg-background flex flex-col font-sans">
@@ -86,19 +199,15 @@ export default function Home() {
 
         {/* Add Creator Section */}
         <section className="w-full">
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            {/* Left: Add Profile Form */}
-            <div className="lg:col-span-2 space-y-4">
-              <div className="flex items-center gap-2 text-primary">
-                <Search className="w-4 h-4" />
-                <span className="text-sm font-medium">添加 Instagram 博主</span>
-              </div>
-              <AddProfileForm onSuccess={() => handleRefresh()} className="w-full" />
+          <div className="rounded-xl border border-border/60 bg-secondary/15 p-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div>
+              <h2 className="text-base font-semibold">达人管理入口</h2>
+              <p className="text-sm text-muted-foreground mt-1">
+                点击按钮后，在弹窗中填写平台、用户名、链接与标签。
+              </p>
             </div>
-
-            {/* Right: Dashboard Stats */}
-            <div className="lg:col-span-1 pt-0 lg:pt-10">
-              <DashboardStats refreshKey={statsTrigger} />
+            <div className="shrink-0">
+              <AddProfileForm onSuccess={() => handleRefresh()} />
             </div>
           </div>
         </section>
@@ -138,6 +247,106 @@ export default function Home() {
               >
                 近7天
               </Button>
+            </div>
+          </div>
+
+          <div className="space-y-3 rounded-lg border border-border/60 bg-secondary/20 p-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-semibold">标签筛选</h3>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-8 text-xs"
+                onClick={clearFilters}
+                disabled={!hasActiveFilters}
+              >
+                <FilterX className="w-3.5 h-3.5 mr-1" />
+                清空筛选
+              </Button>
+            </div>
+
+            <div className="space-y-2">
+              <p className="text-xs text-muted-foreground">平台</p>
+              <div className="flex flex-wrap gap-2">
+                {platformOptions.map((option) => (
+                  <Button
+                    key={option.value}
+                    variant={filters.platforms[0] === option.value ? 'secondary' : 'outline'}
+                    size="sm"
+                    className="h-8 text-xs"
+                    onClick={() => togglePlatformFilter(option.value)}
+                  >
+                    {option.label}
+                  </Button>
+                ))}
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <p className="text-xs text-muted-foreground">对标类型</p>
+              <div className="flex flex-wrap gap-2">
+                {benchmarkOptions.map((option) => (
+                  <Button
+                    key={option.value}
+                    variant={filters.benchmarkTypes.includes(option.value) ? 'secondary' : 'outline'}
+                    size="sm"
+                    className="h-8 text-xs"
+                    onClick={() => toggleFilter('benchmarkTypes', option.value)}
+                  >
+                    {option.label}
+                  </Button>
+                ))}
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <p className="text-xs text-muted-foreground">文化</p>
+              <div className="flex flex-wrap gap-2">
+                {cultureOptions.map((option) => (
+                  <Button
+                    key={option.value}
+                    variant={filters.cultureTags.includes(option.value) ? 'secondary' : 'outline'}
+                    size="sm"
+                    className="h-8 text-xs"
+                    onClick={() => toggleFilter('cultureTags', option.value)}
+                  >
+                    {option.label}
+                  </Button>
+                ))}
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <p className="text-xs text-muted-foreground">内容类型</p>
+              <div className="flex flex-wrap gap-2">
+                {contentOptions.map((option) => (
+                  <Button
+                    key={option.value}
+                    variant={filters.contentTags.includes(option.value) ? 'secondary' : 'outline'}
+                    size="sm"
+                    className="h-8 text-xs"
+                    onClick={() => toggleFilter('contentTags', option.value)}
+                  >
+                    {option.label}
+                  </Button>
+                ))}
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <p className="text-xs text-muted-foreground">上传人（Email）</p>
+              <select
+                className="h-9 rounded-md border border-border bg-background px-3 text-sm w-full sm:w-[360px]"
+                value={filters.uploaders[0] || ''}
+                onChange={(e) => handleUploaderChange(e.target.value)}
+              >
+                <option value="">全部上传人</option>
+                {uploaderOptions.map((email) => (
+                  <option key={email} value={email}>
+                    {email}
+                  </option>
+                ))}
+              </select>
             </div>
           </div>
 

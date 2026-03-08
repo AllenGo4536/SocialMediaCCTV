@@ -1,23 +1,28 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
-import { triggerInstagramScrape } from '@/lib/apify';
+import { triggerInstagramScrape, triggerTikTokScrape, triggerYoutubeScrape } from '@/lib/apify';
+import { parseProfileInput } from '@/lib/profile-input';
+import {
+    isValidBenchmarkTag,
+    isValidContentTag,
+    isValidCultureTag,
+    isValidPlatform,
+} from '@/lib/taxonomy';
+import type { Platform } from '@/lib/taxonomy';
 
+function uniqueStrings(values: string[]) {
+    return [...new Set(values)];
+}
 
+interface ProfileTagRow {
+    profile_id: string;
+    tag_definitions:
+    | { id: string; name: string; group_key: string }
+    | Array<{ id: string; name: string; group_key: string }>;
+}
 
-export async function GET(req: NextRequest) {
-    // if (!checkAuth(req)) {
-    //   return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    // }
-    // Feed page needs profiles too? If Admin only, then protect. 
-    // User said "Manage Center" -> Admin. "Feed" -> Public (Internal).
-    // Assuming GET profiles is public for internal usage or just protected?
-    // User said "Page read-only database".
-    // Let's keep GET open or use a separate public vs admin endpoint.
-    // For now, let's keep it simple. If it's for 'Manage Center', maybe protect it. 
-    // But wait, the Feed needs to know which profiles exist? Or just fetch posts?
-    // Feed fetches posts. Admin fetches profiles.
-
+export async function GET() {
     const { data: profiles, error } = await supabaseAdmin
         .from('profiles')
         .select('*')
@@ -27,33 +32,63 @@ export async function GET(req: NextRequest) {
         return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    // Identify needed users
-    const userIds = profiles
-        .map(p => p.created_by)
-        .filter(Boolean); // Filter null/undefined
+    const safeProfiles = profiles || [];
+    const userIds = uniqueStrings(
+        safeProfiles
+            .map((p) => p.created_by)
+            .filter((value): value is string => Boolean(value))
+    );
+    const profileIds = safeProfiles.map(p => p.id);
 
+    const userMap = new Map<string, string | null>();
     if (userIds.length > 0) {
-        // Fetch emails from app_users
         const { data: users } = await supabaseAdmin
             .from('app_users')
             .select('id, email')
             .in('id', userIds);
-
-        // Map emails back to profiles
         if (users) {
-            const userMap = new Map(users.map(u => [u.id, u.email]));
-
-            // Mutate profile objects to add creator_email
-            // @ts-ignore - Supabase types might not have creator_email yet since we didn't update generated types, but our internal type has it.
-            profiles.forEach(p => {
-                if (p.created_by && userMap.has(p.created_by)) {
-                    p.creator_email = userMap.get(p.created_by);
-                }
-            });
+            users.forEach((u) => userMap.set(u.id, u.email));
         }
     }
 
-    return NextResponse.json(profiles);
+    const tagsMap = new Map<string, Array<{ id: string; label: string; group: string }>>();
+    if (profileIds.length > 0) {
+        const { data: profileTags } = await supabaseAdmin
+            .from('profile_tags')
+            .select('profile_id, tag_definitions!inner(id, name, group_key)')
+            .in('profile_id', profileIds);
+
+        if (profileTags) {
+            for (const row of profileTags as ProfileTagRow[]) {
+                const tag = Array.isArray(row.tag_definitions)
+                    ? row.tag_definitions[0]
+                    : row.tag_definitions;
+                if (!tag) continue;
+                const current = tagsMap.get(row.profile_id) || [];
+                current.push({
+                    id: tag.id,
+                    label: tag.name,
+                    group: tag.group_key,
+                });
+                tagsMap.set(row.profile_id, current);
+            }
+        }
+    }
+
+    const enrichedProfiles = safeProfiles.map((profile) => ({
+        ...profile,
+        creator_email: profile.created_by ? userMap.get(profile.created_by) || null : null,
+        tags: tagsMap.get(profile.id) || [],
+    }));
+
+    return NextResponse.json(enrichedProfiles);
+}
+
+function normalizeUsernameForPlatform(platform: Platform, username: string) {
+    if (platform === 'instagram' || platform === 'tiktok' || platform === 'youtube') {
+        return username.toLowerCase();
+    }
+    return username;
 }
 
 export async function POST(req: NextRequest) {
@@ -70,33 +105,80 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
-        const { username } = await req.json();
+        const payload = await req.json();
+        const platformRaw = typeof payload.platform === 'string' ? payload.platform.trim() : '';
+        const input = typeof payload.input === 'string' ? payload.input.trim() : '';
+        const manualUsername = typeof payload.manualUsername === 'string' ? payload.manualUsername.trim() : '';
+        const benchmarkType = typeof payload.benchmarkType === 'string' ? payload.benchmarkType : '';
+        const cultureTags = Array.isArray(payload.cultureTags)
+            ? payload.cultureTags.filter((tag: unknown): tag is string => typeof tag === 'string')
+            : [];
+        const contentTags = Array.isArray(payload.contentTags)
+            ? payload.contentTags.filter((tag: unknown): tag is string => typeof tag === 'string')
+            : [];
 
-        if (!username) {
-            return NextResponse.json({ error: 'Username is required' }, { status: 400 });
+        if (!platformRaw || !isValidPlatform(platformRaw)) {
+            return NextResponse.json({ error: 'Invalid platform' }, { status: 400 });
+        }
+        if (!input) {
+            return NextResponse.json({ error: 'Profile input is required' }, { status: 400 });
+        }
+        if (!benchmarkType || !isValidBenchmarkTag(benchmarkType)) {
+            return NextResponse.json({ error: 'Benchmark type is required' }, { status: 400 });
         }
 
-        // 1. Check if exists
+        const invalidCultureTag = cultureTags.find((tag: string) => !isValidCultureTag(tag));
+        if (invalidCultureTag) {
+            return NextResponse.json({ error: `Invalid culture tag: ${invalidCultureTag}` }, { status: 400 });
+        }
+
+        const invalidContentTag = contentTags.find((tag: string) => !isValidContentTag(tag));
+        if (invalidContentTag) {
+            return NextResponse.json({ error: `Invalid content tag: ${invalidContentTag}` }, { status: 400 });
+        }
+
+        const uniqueCultureTags = uniqueStrings(cultureTags);
+        const uniqueContentTags = uniqueStrings(contentTags);
+
+        if (benchmarkType === 'aesthetic_benchmark' && (uniqueCultureTags.length > 0 || uniqueContentTags.length > 0)) {
+            return NextResponse.json(
+                { error: 'Aesthetic benchmark cannot have culture/content tags' },
+                { status: 400 }
+            );
+        }
+
+        const parsedInput = parseProfileInput(platformRaw, input)
+            || (platformRaw !== 'youtube' && manualUsername ? parseProfileInput(platformRaw, manualUsername) : null);
+        if (!parsedInput) {
+            return NextResponse.json({
+                error: platformRaw === 'youtube'
+                    ? 'YouTube 仅支持频道主页链接（如 https://www.youtube.com/@handle）'
+                    : 'Invalid profile URL or username'
+            }, { status: 400 });
+        }
+
+        const platform = platformRaw as Platform;
+        const username = normalizeUsernameForPlatform(platform, parsedInput.username);
+        const profileUrl = parsedInput.profileUrl;
+
         const { data: existing } = await supabaseAdmin
             .from('profiles')
             .select('id')
+            .eq('platform', platform)
             .eq('username', username)
-            .single();
+            .maybeSingle();
 
         if (existing) {
             return NextResponse.json({ error: 'Profile already exists' }, { status: 409 });
         }
 
-        // 2. Insert
-        // Use a default url construction if user only provides username
-        const profileUrl = `https://www.instagram.com/${username}/`;
-
-        const { data, error } = await supabaseAdmin
+        const { data: insertedProfile, error } = await supabaseAdmin
             .from('profiles')
             .insert({
+                platform,
                 username,
                 profile_url: profileUrl,
-                full_name: username, // Update later via webhook?
+                full_name: username,
                 created_by: user.id
             })
             .select()
@@ -106,18 +188,41 @@ export async function POST(req: NextRequest) {
             throw error;
         }
 
-        // 3. Trigger Initial Scrape
-        // Don't await this? Or do? 
-        // Apify start() is fast (just registers run).
-        try {
-            await triggerInstagramScrape([username]);
-        } catch (e) {
-            console.error('Failed to trigger initial scrape', e);
-            // Don't fail the request, just warn
+        const tagIds = [benchmarkType, ...uniqueCultureTags, ...uniqueContentTags];
+        if (tagIds.length === 0) {
+            return NextResponse.json({ error: 'At least one tag is required' }, { status: 400 });
         }
 
-        return NextResponse.json(data);
-    } catch (err: any) {
-        return NextResponse.json({ error: err.message }, { status: 500 });
+        const { error: profileTagError } = await supabaseAdmin
+            .from('profile_tags')
+            .insert(tagIds.map((tagId) => ({
+                profile_id: insertedProfile.id,
+                tag_id: tagId,
+            })));
+
+        if (profileTagError) {
+            await supabaseAdmin.from('profiles').delete().eq('id', insertedProfile.id);
+            return NextResponse.json({ error: profileTagError.message }, { status: 500 });
+        }
+
+        try {
+            if (platform === 'instagram') {
+                await triggerInstagramScrape([username]);
+            } else if (platform === 'tiktok') {
+                await triggerTikTokScrape([username]);
+            } else if (platform === 'youtube') {
+                await triggerYoutubeScrape([profileUrl]);
+            }
+        } catch (e) {
+            console.error('Failed to trigger initial scrape', e);
+        }
+
+        return NextResponse.json({
+            ...insertedProfile,
+            tags: tagIds,
+        });
+    } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : 'Unknown error';
+        return NextResponse.json({ error: message }, { status: 500 });
     }
 }

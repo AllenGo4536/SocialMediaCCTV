@@ -1,7 +1,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
-import { triggerInstagramScrape } from '@/lib/apify';
+import { triggerInstagramScrape, triggerTikTokScrape, triggerYoutubeScrape } from '@/lib/apify';
 
 export const maxDuration = 60; // Allow 60s for Vercel Function (triggers aren't long running, but iterating might take a sec)
 
@@ -23,39 +23,49 @@ export async function GET(req: NextRequest) {
     }
 
     try {
-        // 1. Get all active usernames
         const { data: profiles, error } = await supabaseAdmin
             .from('profiles')
-            .select('username');
+            .select('username, platform, profile_url');
 
         if (error) throw error;
         if (!profiles || profiles.length === 0) {
             return NextResponse.json({ message: 'No profiles to update' });
         }
 
-        const usernames = profiles.map(p => p.username);
+        const instagramUsernames = profiles
+            .filter((profile) => profile.platform === 'instagram')
+            .map((profile) => profile.username);
+        const tiktokUsernames = profiles
+            .filter((profile) => profile.platform === 'tiktok')
+            .map((profile) => profile.username);
+        const youtubeUrls = profiles
+            .filter((profile) => profile.platform === 'youtube')
+            .map((profile) => profile.profile_url)
+            .filter((url): url is string => typeof url === 'string' && url.length > 0);
 
-        // 2. Trigger Apify
-        // Apify Scraper can take a list of usernames.
-        // We should batch them if there are too many? 
-        // The scraper docs say "Add one or more...".
-        // 100 usernames might be fine.
-        // If we have thousands, we need batching. V1 assumes "Top influencers", maybe < 50.
+        const runs: Array<{ platform: 'instagram' | 'tiktok' | 'youtube'; runId: string }> = [];
 
-        // "Daily refresh" -> get latest posts.
-        // Limit to fewer posts per profile to save credits? 
-        // User said "Every 24h refresh". 
-        // Let's scrape 5-10 latest posts per profile to catch up.
-
-        const run = await triggerInstagramScrape(usernames, 5);
+        if (instagramUsernames.length > 0) {
+            const run = await triggerInstagramScrape(instagramUsernames, 5);
+            runs.push({ platform: 'instagram', runId: run.id });
+        }
+        if (tiktokUsernames.length > 0) {
+            const run = await triggerTikTokScrape(tiktokUsernames, 5);
+            runs.push({ platform: 'tiktok', runId: run.id });
+        }
+        if (youtubeUrls.length > 0) {
+            const run = await triggerYoutubeScrape(youtubeUrls, 5);
+            runs.push({ platform: 'youtube', runId: run.id });
+        }
 
         return NextResponse.json({
             success: true,
-            message: `Triggered scrape for ${usernames.length} profiles`,
-            runId: run.id
+            message: `Triggered scrape for ${profiles.length} profiles`,
+            runs,
         });
 
-    } catch (err: any) {
-        return NextResponse.json({ error: err.message }, { status: 500 });
+    } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : 'Unknown error';
+        return NextResponse.json({ error: message }, { status: 500 });
     }
 }

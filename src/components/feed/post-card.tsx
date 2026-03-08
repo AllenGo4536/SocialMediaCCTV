@@ -1,11 +1,8 @@
 
 import { Post } from '@/types';
 import { Card, CardContent } from '@/components/ui/card';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
-import { Heart, MessageCircle, Play, Layers, Clock, ExternalLink, Eye } from 'lucide-react';
-import Image from 'next/image';
-import { useState, useEffect } from 'react';
+import { Heart, MessageCircle, Play, Layers, ExternalLink, Eye } from 'lucide-react';
 import { useVideoPlayback } from '@/contexts/video-playback-context';
 
 interface PostCardProps {
@@ -43,23 +40,24 @@ function formatDate(dateString: string): string {
 export function PostCard({ post }: PostCardProps) {
     const isVideo = post.type === 'Video';
     const isSidecar = post.type === 'Sidecar';
-    const [isPlaying, setIsPlaying] = useState(false);
     const { playingId, setPlayingId } = useVideoPlayback();
-
-    // Auto-stop if another video starts playing
-    useEffect(() => {
-        if (playingId && playingId !== post.id && isPlaying) {
-            setIsPlaying(false);
-        }
-    }, [playingId, post.id, isPlaying]);
+    const isPlaying = playingId === post.id;
 
     const handlePlay = (e: React.MouseEvent) => {
         if (isVideo && post.video_url) {
             e.preventDefault();
-            setIsPlaying(true);
             setPlayingId(post.id);
         }
     };
+
+    const platformLabel =
+        post.profiles?.platform === 'tiktok'
+            ? 'TikTok'
+            : post.profiles?.platform === 'youtube'
+                ? 'YouTube'
+                : 'Instagram';
+    const profileLink = post.profiles?.profile_url || post.permalink;
+    const previewTags = post.profiles?.tags?.slice(0, 2) || [];
 
     return (
         <Card className="overflow-hidden h-full flex flex-col border border-border bg-card shadow-sm rounded-xl group transition-all hover:shadow-md">
@@ -94,7 +92,10 @@ export function PostCard({ post }: PostCardProps) {
                 )}
 
                 {/* Type Badges */}
-                <div className="absolute top-2 right-2 flex gap-1 z-20">
+                <div className="absolute top-2 right-2 flex gap-1 z-20 items-center">
+                    <Badge variant="secondary" className="text-[10px] bg-black/60 text-white border-none">
+                        {platformLabel}
+                    </Badge>
                     {isVideo && (
                         <div className="bg-black/50 text-white p-1 rounded md:block hidden md:group-hover:hidden transition-opacity">
                             <Play className="w-3 h-3" />
@@ -140,8 +141,9 @@ export function PostCard({ post }: PostCardProps) {
                 <div className="flex flex-col gap-1">
                     <div className="flex justify-between items-center text-sm">
                         <a
-                            href={`https://instagram.com/${post.profiles?.username}`}
+                            href={profileLink}
                             target="_blank"
+                            rel="noopener noreferrer"
                             className="text-primary hover:text-primary/80 font-bold font-mono transition-colors"
                         >
                             @{post.profiles?.username}
@@ -155,6 +157,15 @@ export function PostCard({ post }: PostCardProps) {
                         <p className="text-xs text-muted-foreground line-clamp-2 mt-1 font-sans opacity-70">
                             {post.caption}
                         </p>
+                    )}
+                    {previewTags.length > 0 && (
+                        <div className="flex flex-wrap gap-1 mt-2">
+                            {previewTags.map((tag) => (
+                                <Badge key={tag.id} variant="outline" className="text-[10px] px-1.5 py-0">
+                                    {tag.label}
+                                </Badge>
+                            ))}
+                        </div>
                     )}
                 </div>
             </div>
