@@ -307,8 +307,8 @@ export default function Home() {
                     <button
                       key={option.value}
                       className={`px-2.5 py-1 rounded-full text-[11px] font-medium transition-all cursor-pointer border ${filters.platforms[0] === option.value
-                          ? 'bg-primary text-primary-foreground border-primary shadow-sm'
-                          : 'bg-transparent text-muted-foreground border-border/60 hover:border-border hover:text-foreground'
+                        ? 'bg-primary text-primary-foreground border-primary shadow-sm'
+                        : 'bg-transparent text-muted-foreground border-border/60 hover:border-border hover:text-foreground'
                         }`}
                       onClick={() => togglePlatformFilter(option.value)}
                     >
@@ -318,7 +318,7 @@ export default function Home() {
                 </div>
               </div>
 
-              <span className="text-border/60 select-none">|</span>
+              <span className="text-border/60 select-none hidden sm:inline">|</span>
 
               {/* 对标类型 */}
               <div className="flex items-center gap-1.5">
@@ -328,8 +328,8 @@ export default function Home() {
                     <button
                       key={option.value}
                       className={`px-2.5 py-1 rounded-full text-[11px] font-medium transition-all cursor-pointer border ${filters.benchmarkTypes[0] === option.value
-                          ? 'bg-primary text-primary-foreground border-primary shadow-sm'
-                          : 'bg-transparent text-muted-foreground border-border/60 hover:border-border hover:text-foreground'
+                        ? 'bg-primary text-primary-foreground border-primary shadow-sm'
+                        : 'bg-transparent text-muted-foreground border-border/60 hover:border-border hover:text-foreground'
                         }`}
                       onClick={() => toggleBenchmarkFilter(option.value)}
                     >
@@ -339,7 +339,7 @@ export default function Home() {
                 </div>
               </div>
 
-              <span className="text-border/60 select-none">|</span>
+              <span className="text-border/60 select-none hidden sm:inline">|</span>
 
               {/* 文化 */}
               <div className="flex items-center gap-1.5">
@@ -349,8 +349,8 @@ export default function Home() {
                     <button
                       key={option.value}
                       className={`px-2.5 py-1 rounded-full text-[11px] font-medium transition-all cursor-pointer border ${filters.cultureTags.includes(option.value)
-                          ? 'bg-primary text-primary-foreground border-primary shadow-sm'
-                          : 'bg-transparent text-muted-foreground border-border/60 hover:border-border hover:text-foreground'
+                        ? 'bg-primary text-primary-foreground border-primary shadow-sm'
+                        : 'bg-transparent text-muted-foreground border-border/60 hover:border-border hover:text-foreground'
                         }`}
                       onClick={() => toggleFilter('cultureTags', option.value)}
                     >
@@ -360,7 +360,7 @@ export default function Home() {
                 </div>
               </div>
 
-              <span className="text-border/60 select-none">|</span>
+              <span className="text-border/60 select-none hidden sm:inline">|</span>
 
               {/* 内容类型 */}
               <div className="flex items-center gap-1.5">
@@ -370,8 +370,8 @@ export default function Home() {
                     <button
                       key={option.value}
                       className={`px-2.5 py-1 rounded-full text-[11px] font-medium transition-all cursor-pointer border ${filters.contentTags.includes(option.value)
-                          ? 'bg-primary text-primary-foreground border-primary shadow-sm'
-                          : 'bg-transparent text-muted-foreground border-border/60 hover:border-border hover:text-foreground'
+                        ? 'bg-primary text-primary-foreground border-primary shadow-sm'
+                        : 'bg-transparent text-muted-foreground border-border/60 hover:border-border hover:text-foreground'
                         }`}
                       onClick={() => toggleFilter('contentTags', option.value)}
                     >
@@ -381,7 +381,7 @@ export default function Home() {
                 </div>
               </div>
 
-              <span className="text-border/60 select-none">|</span>
+              <span className="text-border/60 select-none hidden sm:inline">|</span>
 
               {/* 上传人 */}
               <div className="flex items-center gap-1.5">
@@ -420,7 +420,7 @@ export default function Home() {
                   <p className="text-muted-foreground">暂无数据，请添加博主以开始监控。</p>
                 </div>
               ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-6">
                   {posts.map((post, index) => (
                     <div key={post.id} className="h-full">
                       <PostCard post={post} priority={index < 4} />

@@ -126,7 +126,7 @@ export function PostCard({ post, priority = false }: PostCardProps) {
                     ? 'video'
                     : platform === 'tiktok' && tiktokPlayerUrl
                         ? 'embed'
-                    : null;
+                        : null;
     const playerSrc =
         playerMode === 'video'
             ? proxiedVideoUrl
@@ -216,21 +216,21 @@ export function PostCard({ post, priority = false }: PostCardProps) {
             </CardContent>
 
             {/* Footer Info */}
-            <div className="p-4 flex flex-col gap-3">
+            <div className="p-2 sm:p-4 flex flex-col gap-2 sm:gap-3">
                 {/* Stats Row */}
-                <div className="flex items-center justify-between border-b border-border pb-3">
-                    <div className="flex items-center gap-4">
-                        <div className="flex items-center gap-1.5 text-foreground font-medium">
-                            <Heart className="w-4 h-4 fill-red-500 text-red-500" />
+                <div className="flex items-center justify-between border-b border-border pb-2 sm:pb-3">
+                    <div className="flex items-center gap-2 sm:gap-4 text-xs sm:text-sm">
+                        <div className="flex items-center gap-1 sm:gap-1.5 text-foreground font-medium">
+                            <Heart className="w-3 h-3 sm:w-4 sm:h-4 fill-red-500 text-red-500" />
                             <span>{formatNumber(post.like_count)}</span>
                         </div>
-                        <div className="flex items-center gap-1.5 text-muted-foreground">
-                            <MessageCircle className="w-4 h-4" />
+                        <div className="flex items-center gap-1 sm:gap-1.5 text-muted-foreground">
+                            <MessageCircle className="w-3 h-3 sm:w-4 sm:h-4" />
                             <span>{formatNumber(post.comment_count)}</span>
                         </div>
                         {(post.video_view_count || 0) > 0 && (
-                            <div className="flex items-center gap-1.5 text-muted-foreground">
-                                <Eye className="w-4 h-4" />
+                            <div className="flex items-center gap-1 sm:gap-1.5 text-muted-foreground">
+                                <Eye className="w-3 h-3 sm:w-4 sm:h-4" />
                                 <span>{formatNumber(post.video_view_count!)}</span>
                             </div>
                         )}
@@ -243,13 +243,13 @@ export function PostCard({ post, priority = false }: PostCardProps) {
                         className="text-muted-foreground hover:text-primary transition-colors p-1 rounded-md hover:bg-muted"
                         title="View Original Post"
                     >
-                        <ExternalLink className="w-4 h-4" />
+                        <ExternalLink className="w-3 h-3 sm:w-4 sm:h-4" />
                     </a>
                 </div>
 
                 {/* Author & Time */}
                 <div className="flex flex-col gap-1">
-                    <div className="flex justify-between items-center text-sm">
+                    <div className="flex justify-between items-center text-xs sm:text-sm">
                         <a
                             href={profileLink}
                             target="_blank"
@@ -258,7 +258,7 @@ export function PostCard({ post, priority = false }: PostCardProps) {
                         >
                             @{post.profiles?.username}
                         </a>
-                        <span className="text-muted-foreground text-xs flex items-center gap-1">
+                        <span className="text-muted-foreground text-[10px] sm:text-xs flex items-center gap-1">
                             {formatDate(post.posted_at)}
                         </span>
                     </div>
