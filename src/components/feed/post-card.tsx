@@ -1,4 +1,5 @@
 
+import { useEffect, useState } from 'react';
 import { Post } from '@/types';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -7,6 +8,7 @@ import { useVideoPlayback } from '@/contexts/video-playback-context';
 
 interface PostCardProps {
     post: Post;
+    priority?: boolean;
 }
 
 function extractTikTokVideoId(url: string | undefined, fallbackId: string | undefined): string | null {
@@ -86,12 +88,22 @@ function formatDate(dateString: string): string {
     return date.toLocaleDateString('zh-CN');
 }
 
-export function PostCard({ post }: PostCardProps) {
+export function PostCard({ post, priority = false }: PostCardProps) {
     const isVideo = post.type === 'Video';
     const isSidecar = post.type === 'Sidecar';
     const platform = post.profiles?.platform || post.platform;
     const { playingId, setPlayingId } = useVideoPlayback();
     const isPlaying = playingId === post.id;
+    const displayUrl = post.display_url || '';
+    const proxiedImageUrl = `/api/proxy/image?url=${encodeURIComponent(displayUrl)}`;
+
+    // Instagram cover URLs are more stable via proxy. Other platforms try direct fetch first for better latency.
+    const initialImageSrc = platform === 'instagram' ? proxiedImageUrl : displayUrl || proxiedImageUrl;
+    const [coverImageSrc, setCoverImageSrc] = useState(initialImageSrc);
+
+    useEffect(() => {
+        setCoverImageSrc(initialImageSrc);
+    }, [initialImageSrc]);
 
     const youtubeVideoId = extractYouTubeVideoId(post.permalink, post.external_id);
     const tiktokVideoId = extractTikTokVideoId(post.permalink, post.external_id);
@@ -166,11 +178,17 @@ export function PostCard({ post }: PostCardProps) {
                     />
                 ) : (
                     <img
-                        src={`/api/proxy/image?url=${encodeURIComponent(post.display_url || '')}`}
+                        src={coverImageSrc}
                         alt={post.caption || `${platformLabel} Post`}
                         className="object-cover w-full h-full transition-opacity group-hover:opacity-90"
                         referrerPolicy="no-referrer"
-                        loading="lazy"
+                        loading={priority ? 'eager' : 'lazy'}
+                        fetchPriority={priority ? 'high' : 'auto'}
+                        onError={() => {
+                            if (coverImageSrc !== proxiedImageUrl) {
+                                setCoverImageSrc(proxiedImageUrl);
+                            }
+                        }}
                     />
                 )}
 
