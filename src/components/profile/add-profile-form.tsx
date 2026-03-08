@@ -189,19 +189,23 @@ export function AddProfileForm({ onSuccess, className }: AddProfileFormProps) {
                     </DialogHeader>
 
                     <form onSubmit={handleSubmit} className="space-y-3 sm:space-y-4 w-full">
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                            <select
-                                className="h-10 sm:h-11 rounded-lg border border-border bg-background px-3 text-sm"
-                                value={platform}
-                                onChange={(e) => setPlatform(e.target.value as Platform)}
-                                disabled={loading}
-                            >
+                        <div className="flex flex-col gap-3">
+                            <div className="flex gap-2">
                                 {platformOptions.map((option) => (
-                                    <option key={option.value} value={option.value}>
+                                    <button
+                                        key={option.value}
+                                        type="button"
+                                        disabled={loading}
+                                        className={`flex-1 h-10 sm:h-11 rounded-lg text-sm font-medium transition-all border cursor-pointer ${platform === option.value
+                                            ? 'bg-primary text-primary-foreground border-primary shadow-sm'
+                                            : 'bg-background text-muted-foreground border-border hover:border-primary/50 hover:text-foreground'
+                                            } disabled:opacity-50 disabled:cursor-not-allowed`}
+                                        onClick={() => setPlatform(option.value)}
+                                    >
                                         {option.label}
-                                    </option>
+                                    </button>
                                 ))}
-                            </select>
+                            </div>
                             <Input
                                 className="h-10 sm:h-11 bg-background border-border font-mono text-sm text-foreground placeholder:text-muted-foreground/40"
                                 placeholder={inputPlaceholder}
