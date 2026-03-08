@@ -93,6 +93,32 @@ function extractYoutubeUsernameFromUrl(input: string): string | null {
     }
 }
 
+function extractYoutubeIdentifierFromUrl(input: string): string | null {
+    try {
+        const url = new URL(input);
+        const host = url.hostname.toLowerCase();
+        if (!host.includes('youtube.com') && !host.includes('youtu.be')) return null;
+
+        const pathParts = url.pathname.split('/').filter(Boolean);
+        if (pathParts.length === 0) return null;
+
+        if (pathParts[0].startsWith('@')) {
+            return `handle:${pathParts[0].slice(1).toLowerCase()}`;
+        }
+
+        if (
+            (pathParts[0] === 'channel' || pathParts[0] === 'user' || pathParts[0] === 'c') &&
+            pathParts[1]
+        ) {
+            return `${pathParts[0]}:${pathParts[1].toLowerCase()}`;
+        }
+
+        return null;
+    } catch {
+        return null;
+    }
+}
+
 function extractUsername(platform: SupportedPlatform, item: DatasetItem): string | null {
     if (platform === 'instagram') {
         return item.ownerUsername ? normalizeUsername(item.ownerUsername) : null;
@@ -221,6 +247,55 @@ function mapYoutubeItem(item: DatasetItem, profileId: string) {
     };
 }
 
+function buildYoutubeProfileLookupKeys(profile: { username: string; profile_url?: string | null }) {
+    const keys = new Set<string>();
+    const normalizedUsername = normalizeUsername(profile.username);
+    keys.add(`youtube:username:${normalizedUsername}`);
+
+    if (normalizedUsername.startsWith('channel:')) {
+        keys.add(`youtube:url:${normalizedUsername}`);
+    } else if (normalizedUsername.startsWith('user:')) {
+        keys.add(`youtube:url:${normalizedUsername}`);
+    } else if (normalizedUsername.startsWith('c:')) {
+        keys.add(`youtube:url:${normalizedUsername}`);
+    } else {
+        keys.add(`youtube:url:handle:${normalizedUsername}`);
+    }
+
+    if (profile.profile_url) {
+        const urlIdentifier = extractYoutubeIdentifierFromUrl(profile.profile_url);
+        if (urlIdentifier) {
+            keys.add(`youtube:url:${urlIdentifier}`);
+        }
+    }
+
+    return [...keys];
+}
+
+function buildYoutubeItemLookupKeys(item: DatasetItem, extractedUsername: string | null) {
+    const keys = new Set<string>();
+
+    if (extractedUsername) {
+        const normalized = normalizeUsername(extractedUsername);
+        keys.add(`youtube:username:${normalized}`);
+        if (normalized.startsWith('channel:') || normalized.startsWith('user:') || normalized.startsWith('c:')) {
+            keys.add(`youtube:url:${normalized}`);
+        } else {
+            keys.add(`youtube:url:handle:${normalized}`);
+        }
+    }
+
+    const youtubeCandidates = [item.channelUrl, item.fromYTUrl, item.inputChannelUrl].filter(
+        (value): value is string => typeof value === 'string' && value.length > 0
+    );
+    for (const candidate of youtubeCandidates) {
+        const identifier = extractYoutubeIdentifierFromUrl(candidate);
+        if (identifier) keys.add(`youtube:url:${identifier}`);
+    }
+
+    return [...keys];
+}
+
 export async function POST(req: NextRequest) {
     try {
         const payload = await req.json();
@@ -249,11 +324,14 @@ export async function POST(req: NextRequest) {
             tiktok: new Set<string>(),
             youtube: new Set<string>(),
         };
+        let hasYoutubeItems = false;
 
         for (const item of items) {
             const platform = detectPlatform(item, actorId);
             if (!platform) continue;
+            if (platform === 'youtube') hasYoutubeItems = true;
             const username = extractUsername(platform, item);
+            if (!username && platform !== 'youtube') continue;
             if (!username) continue;
             usernameBuckets[platform].add(username);
         }
@@ -286,15 +364,15 @@ export async function POST(req: NextRequest) {
             }
         }
 
-        if (usernameBuckets.youtube.size > 0) {
+        if (hasYoutubeItems) {
             const { data: youtubeProfiles } = await supabaseAdmin
                 .from('profiles')
-                .select('id, username')
+                .select('id, username, profile_url')
                 .eq('platform', 'youtube')
-                .in('username', [...usernameBuckets.youtube]);
             if (youtubeProfiles) {
                 youtubeProfiles.forEach((profile) => {
-                    profileMap.set(`youtube:${normalizeUsername(profile.username)}`, profile.id);
+                    const keys = buildYoutubeProfileLookupKeys(profile);
+                    keys.forEach((key) => profileMap.set(key, profile.id));
                 });
             }
         }
@@ -307,9 +385,22 @@ export async function POST(req: NextRequest) {
             if (!platform) continue;
             if (!itemData.id) continue;
             const username = extractUsername(platform, itemData);
-            if (!username) continue;
+            if (!username && platform !== 'youtube') continue;
 
-            const profileId = profileMap.get(`${platform}:${username}`);
+            let profileId: string | undefined;
+            if (platform === 'youtube') {
+                const lookupKeys = buildYoutubeItemLookupKeys(itemData, username);
+                for (const key of lookupKeys) {
+                    const found = profileMap.get(key);
+                    if (found) {
+                        profileId = found;
+                        break;
+                    }
+                }
+            } else {
+                profileId = profileMap.get(`${platform}:${username}`);
+            }
+
             if (!profileId) continue;
 
             if (platform === 'instagram') {
