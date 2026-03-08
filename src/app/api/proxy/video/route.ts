@@ -1,6 +1,20 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 
+const BROWSER_USER_AGENT =
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36';
+
+function isTikTokRelatedHost(hostname: string) {
+    const host = hostname.toLowerCase();
+    return (
+        host.includes('tiktok') ||
+        host.includes('byteoversea') ||
+        host.includes('ibyteimg') ||
+        host.includes('muscdn') ||
+        host.includes('snssdk')
+    );
+}
+
 export async function GET(req: NextRequest) {
     const url = req.nextUrl.searchParams.get('url');
 
@@ -10,47 +24,62 @@ export async function GET(req: NextRequest) {
 
     try {
         const urlObj = new URL(url);
-        // Allow same hosts as images plus potentially others if needed
-        const allowedHosts = ['cdninstagram.com', 'fbcdn.net', 'instagram.com'];
-        const isAllowed = allowedHosts.some(host => urlObj.hostname.endsWith(host));
 
         if (urlObj.protocol !== 'http:' && urlObj.protocol !== 'https:') {
             return NextResponse.json({ error: 'Invalid protocol' }, { status: 400 });
         }
 
-        // Fetch the video
+        const upstreamHeaders = new Headers({
+            'User-Agent': BROWSER_USER_AGENT,
+            Accept: '*/*',
+        });
+
+        const range = req.headers.get('range');
+        if (range) {
+            upstreamHeaders.set('Range', range);
+        }
+
+        // TikTok CDN often requires browser-like referer/origin.
+        if (isTikTokRelatedHost(urlObj.hostname)) {
+            upstreamHeaders.set('Referer', 'https://www.tiktok.com/');
+            upstreamHeaders.set('Origin', 'https://www.tiktok.com');
+        }
+
         const response = await fetch(url, {
-            headers: {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-            }
+            headers: upstreamHeaders,
+            redirect: 'follow',
         });
 
         if (!response.ok) {
             return NextResponse.json({ error: `Failed to fetch video: ${response.status}` }, { status: response.status });
         }
 
-        const contentType = response.headers.get('content-type') || 'video/mp4';
-        const contentLength = response.headers.get('content-length');
-
-        // Forward ranges if requested (basic support)
-        // For a full streaming proxy we might need more complex range handling, 
-        // but often just returning the body as a stream works for modern browsers using range requests against this proxy.
-        // However, standard fetch response body in Node/Edge can simply be passed to NextResponse.
-
         const headers = new Headers();
-        headers.set('Content-Type', contentType);
-        headers.set('Cache-Control', 'public, max-age=31536000, immutable');
-        headers.set('Access-Control-Allow-Origin', '*');
-        if (contentLength) {
-            headers.set('Content-Length', contentLength);
+        const passthroughHeaders = [
+            'content-type',
+            'content-length',
+            'accept-ranges',
+            'content-range',
+            'etag',
+            'last-modified',
+        ];
+        passthroughHeaders.forEach((headerName) => {
+            const value = response.headers.get(headerName);
+            if (value) headers.set(headerName, value);
+        });
+        if (!headers.get('content-type')) {
+            headers.set('content-type', 'video/mp4');
         }
 
+        headers.set('Cache-Control', 'public, max-age=3600');
+        headers.set('Access-Control-Allow-Origin', '*');
+
         return new NextResponse(response.body, {
-            status: 200,
-            headers: headers
+            status: response.status,
+            headers,
         });
 
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('Proxy error:', error);
         return NextResponse.json({ error: 'Failed to proxy video' }, { status: 500 });
     }

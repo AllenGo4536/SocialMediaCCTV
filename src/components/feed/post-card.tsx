@@ -9,6 +9,55 @@ interface PostCardProps {
     post: Post;
 }
 
+function extractTikTokVideoId(url: string | undefined, fallbackId: string | undefined): string | null {
+    if (url) {
+        try {
+            const parsed = new URL(url);
+            const pathParts = parsed.pathname.split('/').filter(Boolean);
+            const videoIdx = pathParts.findIndex((part) => part === 'video');
+            if (videoIdx >= 0 && pathParts[videoIdx + 1]) {
+                return pathParts[videoIdx + 1];
+            }
+        } catch {
+            // Ignore malformed URLs and fallback to external id below.
+        }
+    }
+
+    if (fallbackId && /^\d+$/.test(fallbackId)) {
+        return fallbackId;
+    }
+
+    return null;
+}
+
+function extractYouTubeVideoId(url: string | undefined, fallbackId: string | undefined): string | null {
+    if (url) {
+        try {
+            const parsed = new URL(url);
+            const host = parsed.hostname.toLowerCase();
+            if (host === 'youtu.be') {
+                const shortId = parsed.pathname.split('/').filter(Boolean)[0];
+                if (shortId) return shortId;
+            }
+
+            const vParam = parsed.searchParams.get('v');
+            if (vParam) return vParam;
+
+            const pathParts = parsed.pathname.split('/').filter(Boolean);
+            if (pathParts[0] === 'shorts' && pathParts[1]) return pathParts[1];
+            if (pathParts[0] === 'embed' && pathParts[1]) return pathParts[1];
+        } catch {
+            // Ignore malformed URLs and fallback to external id below.
+        }
+    }
+
+    if (fallbackId && /^[a-zA-Z0-9_-]{6,}$/.test(fallbackId)) {
+        return fallbackId;
+    }
+
+    return null;
+}
+
 function formatNumber(num: number): string {
     if (num >= 1000000) {
         return (num / 1000000).toFixed(1) + 'M';
@@ -40,20 +89,51 @@ function formatDate(dateString: string): string {
 export function PostCard({ post }: PostCardProps) {
     const isVideo = post.type === 'Video';
     const isSidecar = post.type === 'Sidecar';
+    const platform = post.profiles?.platform || post.platform;
     const { playingId, setPlayingId } = useVideoPlayback();
     const isPlaying = playingId === post.id;
 
+    const youtubeVideoId = extractYouTubeVideoId(post.permalink, post.external_id);
+    const tiktokVideoId = extractTikTokVideoId(post.permalink, post.external_id);
+    const youtubeEmbedUrl = youtubeVideoId
+        ? `https://www.youtube.com/embed/${youtubeVideoId}?autoplay=1&playsinline=1&rel=0`
+        : null;
+    const tiktokPlayerUrl = tiktokVideoId
+        ? `https://www.tiktok.com/player/v1/${tiktokVideoId}?autoplay=1&description=0&controls=1`
+        : null;
+    const proxiedVideoUrl = post.video_url
+        ? `/api/proxy/video?url=${encodeURIComponent(post.video_url)}`
+        : null;
+
+    const playerMode =
+        !isVideo
+            ? null
+            : platform === 'youtube' && youtubeEmbedUrl
+                ? 'embed'
+                : proxiedVideoUrl
+                    ? 'video'
+                    : platform === 'tiktok' && tiktokPlayerUrl
+                        ? 'embed'
+                    : null;
+    const playerSrc =
+        playerMode === 'video'
+            ? proxiedVideoUrl
+            : platform === 'youtube'
+                ? youtubeEmbedUrl
+                : tiktokPlayerUrl;
+    const canPlay = Boolean(playerMode && playerSrc);
+
     const handlePlay = (e: React.MouseEvent) => {
-        if (isVideo && post.video_url) {
+        if (canPlay) {
             e.preventDefault();
             setPlayingId(post.id);
         }
     };
 
     const platformLabel =
-        post.profiles?.platform === 'tiktok'
+        platform === 'tiktok'
             ? 'TikTok'
-            : post.profiles?.platform === 'youtube'
+            : platform === 'youtube'
                 ? 'YouTube'
                 : 'Instagram';
     const profileLink = post.profiles?.profile_url || post.permalink;
@@ -62,20 +142,32 @@ export function PostCard({ post }: PostCardProps) {
     return (
         <Card className="overflow-hidden h-full flex flex-col border border-border bg-card shadow-sm rounded-xl group transition-all hover:shadow-md">
             {/* Cover Image */}
-            <CardContent className="p-0 relative aspect-[4/5] bg-muted cursor-pointer" onClick={handlePlay}>
-                {isPlaying && post.video_url ? (
+            <CardContent
+                className={`p-0 relative aspect-[4/5] bg-muted ${canPlay ? 'cursor-pointer' : 'cursor-default'}`}
+                onClick={handlePlay}
+            >
+                {isPlaying && playerMode === 'video' && playerSrc ? (
                     <video
-                        src={`/api/proxy/video?url=${encodeURIComponent(post.video_url)}`}
+                        src={playerSrc}
                         className="w-full h-full object-cover"
                         controls
                         autoPlay
                         playsInline
                         loop
                     />
+                ) : isPlaying && playerMode === 'embed' && playerSrc ? (
+                    <iframe
+                        src={playerSrc}
+                        title={post.caption || `${platformLabel} video`}
+                        className="w-full h-full border-0"
+                        allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
+                        allowFullScreen
+                        referrerPolicy="strict-origin-when-cross-origin"
+                    />
                 ) : (
                     <img
                         src={`/api/proxy/image?url=${encodeURIComponent(post.display_url || '')}`}
-                        alt={post.caption || 'Instagram Post'}
+                        alt={post.caption || `${platformLabel} Post`}
                         className="object-cover w-full h-full transition-opacity group-hover:opacity-90"
                         referrerPolicy="no-referrer"
                         loading="lazy"
@@ -83,7 +175,7 @@ export function PostCard({ post }: PostCardProps) {
                 )}
 
                 {/* Video Play Overlay */}
-                {isVideo && !isPlaying && (
+                {isVideo && canPlay && !isPlaying && (
                     <div className="absolute inset-0 z-10 flex items-center justify-center flex md:hidden md:group-hover:flex transition-all duration-300">
                         <div className="bg-black/40 hover:bg-black/50 backdrop-blur-[2px] rounded-full p-4 shadow-xl border border-white/20 transform transition-transform group-hover:scale-110">
                             <Play className="w-8 h-8 text-white fill-white" />
@@ -96,7 +188,7 @@ export function PostCard({ post }: PostCardProps) {
                     <Badge variant="secondary" className="text-[10px] bg-black/60 text-white border-none">
                         {platformLabel}
                     </Badge>
-                    {isVideo && (
+                    {isVideo && canPlay && (
                         <div className="bg-black/50 text-white p-1 rounded md:block hidden md:group-hover:hidden transition-opacity">
                             <Play className="w-3 h-3" />
                         </div>
