@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { PostCard } from '@/components/feed/post-card';
 import { AddProfileForm } from '@/components/profile/add-profile-form';
 import { Button } from '@/components/ui/button';
@@ -82,9 +82,10 @@ export default function Home() {
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
 
-  const [timeRange, setTimeRange] = useState<'all' | '30' | '7'>('30');
+  const [timeRange, setTimeRange] = useState<'all' | '30' | '7'>('all');
   const [filters, setFilters] = useState<FeedFilters>(initialFilters);
   const [uploaderOptions, setUploaderOptions] = useState<string[]>([]);
+  const latestRequestIdRef = useRef(0);
 
   const fetchPosts = async (
     pageNum: number,
@@ -92,12 +93,14 @@ export default function Home() {
     range = timeRange,
     nextFilters = filters
   ) => {
+    const requestId = ++latestRequestIdRef.current;
     try {
       setLoading(true);
       const res = await fetch(buildFeedUrl(pageNum, range, nextFilters));
       const payload = await res.json();
 
       if (!res.ok) throw new Error(payload.error);
+      if (requestId !== latestRequestIdRef.current) return;
 
       if (refresh) {
         setPosts(payload.data);
@@ -107,10 +110,13 @@ export default function Home() {
 
       setHasMore(payload.meta.hasMore);
     } catch (err: unknown) {
+      if (requestId !== latestRequestIdRef.current) return;
       const message = err instanceof Error ? err.message : 'Unknown error';
       toast.error("Failed to load feed: " + message);
     } finally {
-      setLoading(false);
+      if (requestId === latestRequestIdRef.current) {
+        setLoading(false);
+      }
     }
   };
 
@@ -151,7 +157,7 @@ export default function Home() {
   };
 
   const toggleFilter = (
-    key: keyof Omit<FeedFilters, 'uploaders'>,
+    key: 'cultureTags' | 'contentTags',
     value: string
   ) => {
     const current = filters[key] as string[];
@@ -166,6 +172,14 @@ export default function Home() {
   const togglePlatformFilter = (value: 'instagram' | 'tiktok' | 'youtube') => {
     const nextPlatforms = filters.platforms[0] === value ? [] : [value];
     const nextFilters = { ...filters, platforms: nextPlatforms };
+    setFilters(nextFilters);
+    setPage(1);
+    fetchPosts(1, true, timeRange, nextFilters);
+  };
+
+  const toggleBenchmarkFilter = (value: string) => {
+    const nextBenchmarkTypes = filters.benchmarkTypes[0] === value ? [] : [value];
+    const nextFilters = { ...filters, benchmarkTypes: nextBenchmarkTypes };
     setFilters(nextFilters);
     setPage(1);
     fetchPosts(1, true, timeRange, nextFilters);
@@ -288,10 +302,10 @@ export default function Home() {
                 {benchmarkOptions.map((option) => (
                   <Button
                     key={option.value}
-                    variant={filters.benchmarkTypes.includes(option.value) ? 'secondary' : 'outline'}
+                    variant={filters.benchmarkTypes[0] === option.value ? 'secondary' : 'outline'}
                     size="sm"
                     className="h-8 text-xs"
-                    onClick={() => toggleFilter('benchmarkTypes', option.value)}
+                    onClick={() => toggleBenchmarkFilter(option.value)}
                   >
                     {option.label}
                   </Button>

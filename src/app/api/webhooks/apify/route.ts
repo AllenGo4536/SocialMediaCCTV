@@ -205,21 +205,45 @@ function parseYouTubeDateToIso(raw: string | undefined): string | null {
         return directDate.toISOString();
     }
 
-    const match = raw.match(/(\d+)\s+(minute|hour|day|week|month|year)s?\s+ago/i);
-    if (!match) return null;
+    const normalized = raw.trim();
+    const cleanedEnglish = normalized.replace(/^(streamed|premiered)\s+/i, '');
+    const cleanedDate = new Date(cleanedEnglish);
+    if (!Number.isNaN(cleanedDate.getTime())) {
+        return cleanedDate.toISOString();
+    }
 
-    const count = Number.parseInt(match[1], 10);
-    const unit = match[2].toLowerCase();
     const now = new Date();
+    const applyRelativeOffset = (count: number, unit: 'minute' | 'hour' | 'day' | 'week' | 'month' | 'year') => {
+        const date = new Date(now);
+        if (unit === 'minute') date.setMinutes(date.getMinutes() - count);
+        else if (unit === 'hour') date.setHours(date.getHours() - count);
+        else if (unit === 'day') date.setDate(date.getDate() - count);
+        else if (unit === 'week') date.setDate(date.getDate() - count * 7);
+        else if (unit === 'month') date.setMonth(date.getMonth() - count);
+        else if (unit === 'year') date.setFullYear(date.getFullYear() - count);
+        return date.toISOString();
+    };
 
-    if (unit === 'minute') now.setMinutes(now.getMinutes() - count);
-    else if (unit === 'hour') now.setHours(now.getHours() - count);
-    else if (unit === 'day') now.setDate(now.getDate() - count);
-    else if (unit === 'week') now.setDate(now.getDate() - count * 7);
-    else if (unit === 'month') now.setMonth(now.getMonth() - count);
-    else if (unit === 'year') now.setFullYear(now.getFullYear() - count);
+    const englishMatch = normalized.match(/(\d+)\s+(minute|hour|day|week|month|year)s?\s+ago/i);
+    if (englishMatch) {
+        const count = Number.parseInt(englishMatch[1], 10);
+        const unit = englishMatch[2].toLowerCase() as 'minute' | 'hour' | 'day' | 'week' | 'month' | 'year';
+        return applyRelativeOffset(count, unit);
+    }
 
-    return now.toISOString();
+    const chineseMatch = normalized.match(/(\d+)\s*(分钟|小时|天|周|个月|月|年)前/);
+    if (chineseMatch) {
+        const count = Number.parseInt(chineseMatch[1], 10);
+        const rawUnit = chineseMatch[2];
+        if (rawUnit === '分钟') return applyRelativeOffset(count, 'minute');
+        if (rawUnit === '小时') return applyRelativeOffset(count, 'hour');
+        if (rawUnit === '天') return applyRelativeOffset(count, 'day');
+        if (rawUnit === '周') return applyRelativeOffset(count, 'week');
+        if (rawUnit === '个月' || rawUnit === '月') return applyRelativeOffset(count, 'month');
+        if (rawUnit === '年') return applyRelativeOffset(count, 'year');
+    }
+
+    return null;
 }
 
 function mapYoutubeItem(item: DatasetItem, profileId: string) {
