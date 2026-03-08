@@ -18,6 +18,8 @@ interface FeedFilters {
   uploaders: string[];
 }
 
+type FeedLoadingReason = 'initial' | 'filter' | 'pagination' | 'refresh';
+
 const initialFilters: FeedFilters = {
   platforms: [],
   benchmarkTypes: [],
@@ -79,6 +81,7 @@ function buildFeedUrl(pageNum: number, range: 'all' | '30' | '7', filters: FeedF
 export default function Home() {
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingReason, setLoadingReason] = useState<FeedLoadingReason | null>('initial');
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
 
@@ -86,17 +89,26 @@ export default function Home() {
   const [filters, setFilters] = useState<FeedFilters>(initialFilters);
   const [uploaderOptions, setUploaderOptions] = useState<string[]>([]);
   const latestRequestIdRef = useRef(0);
+  const requestAbortControllerRef = useRef<AbortController | null>(null);
 
   const fetchPosts = async (
     pageNum: number,
     refresh = false,
     range = timeRange,
-    nextFilters = filters
+    nextFilters = filters,
+    reason: FeedLoadingReason = 'refresh'
   ) => {
     const requestId = ++latestRequestIdRef.current;
+    requestAbortControllerRef.current?.abort();
+    const controller = new AbortController();
+    requestAbortControllerRef.current = controller;
+
     try {
       setLoading(true);
-      const res = await fetch(buildFeedUrl(pageNum, range, nextFilters));
+      setLoadingReason(reason);
+      const res = await fetch(buildFeedUrl(pageNum, range, nextFilters), {
+        signal: controller.signal,
+      });
       const payload = await res.json();
 
       if (!res.ok) throw new Error(payload.error);
@@ -111,18 +123,26 @@ export default function Home() {
       setHasMore(payload.meta.hasMore);
     } catch (err: unknown) {
       if (requestId !== latestRequestIdRef.current) return;
+      if (err instanceof Error && err.name === 'AbortError') return;
       const message = err instanceof Error ? err.message : 'Unknown error';
       toast.error("Failed to load feed: " + message);
     } finally {
       if (requestId === latestRequestIdRef.current) {
         setLoading(false);
+        setLoadingReason(null);
       }
     }
   };
 
   useEffect(() => {
-    fetchPosts(1, true);
+    fetchPosts(1, true, 'all', initialFilters, 'initial');
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      requestAbortControllerRef.current?.abort();
+    };
   }, []);
 
   useEffect(() => {
@@ -142,18 +162,19 @@ export default function Home() {
     setPage(newPage);
     window.scrollTo({ top: 0, behavior: 'smooth' });
 
-    fetchPosts(newPage, true);
+    fetchPosts(newPage, true, timeRange, filters, 'pagination');
   };
 
   const handleRefresh = () => {
     setPage(1);
-    fetchPosts(1, true);
+    fetchPosts(1, true, timeRange, filters, 'refresh');
   };
 
   const handleTimeRangeChange = (range: 'all' | '30' | '7') => {
+    if (range === timeRange) return;
     setTimeRange(range);
     setPage(1);
-    fetchPosts(1, true, range, filters);
+    fetchPosts(1, true, range, filters, 'filter');
   };
 
   const toggleFilter = (
@@ -166,7 +187,7 @@ export default function Home() {
     const nextFilters = { ...filters, [key]: nextValues };
     setFilters(nextFilters);
     setPage(1);
-    fetchPosts(1, true, timeRange, nextFilters);
+    fetchPosts(1, true, timeRange, nextFilters, 'filter');
   };
 
   const togglePlatformFilter = (value: 'instagram' | 'tiktok' | 'youtube') => {
@@ -174,7 +195,7 @@ export default function Home() {
     const nextFilters = { ...filters, platforms: nextPlatforms };
     setFilters(nextFilters);
     setPage(1);
-    fetchPosts(1, true, timeRange, nextFilters);
+    fetchPosts(1, true, timeRange, nextFilters, 'filter');
   };
 
   const toggleBenchmarkFilter = (value: string) => {
@@ -182,20 +203,21 @@ export default function Home() {
     const nextFilters = { ...filters, benchmarkTypes: nextBenchmarkTypes };
     setFilters(nextFilters);
     setPage(1);
-    fetchPosts(1, true, timeRange, nextFilters);
+    fetchPosts(1, true, timeRange, nextFilters, 'filter');
   };
 
   const handleUploaderChange = (email: string) => {
     const nextFilters = { ...filters, uploaders: email ? [email] : [] };
+    if (nextFilters.uploaders[0] === filters.uploaders[0]) return;
     setFilters(nextFilters);
     setPage(1);
-    fetchPosts(1, true, timeRange, nextFilters);
+    fetchPosts(1, true, timeRange, nextFilters, 'filter');
   };
 
   const clearFilters = () => {
     setFilters(initialFilters);
     setPage(1);
-    fetchPosts(1, true, timeRange, initialFilters);
+    fetchPosts(1, true, timeRange, initialFilters, 'filter');
   };
 
   const hasActiveFilters =
@@ -204,6 +226,7 @@ export default function Home() {
     filters.cultureTags.length > 0 ||
     filters.contentTags.length > 0 ||
     filters.uploaders.length > 0;
+  const isFilterLoading = loading && loadingReason === 'filter';
 
   return (
     <div className="min-h-screen bg-background flex flex-col font-sans">
@@ -264,121 +287,159 @@ export default function Home() {
             </div>
           </div>
 
-          <div className="space-y-3 rounded-lg border border-border/60 bg-secondary/20 p-4">
-            <div className="flex items-center justify-between">
-              <h3 className="text-sm font-semibold">标签筛选</h3>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-8 text-xs"
-                onClick={clearFilters}
-                disabled={!hasActiveFilters}
-              >
-                <FilterX className="w-3.5 h-3.5 mr-1" />
-                清空筛选
-              </Button>
-            </div>
-
-            <div className="space-y-2">
-              <p className="text-xs text-muted-foreground">平台</p>
-              <div className="flex flex-wrap gap-2">
-                {platformOptions.map((option) => (
-                  <Button
-                    key={option.value}
-                    variant={filters.platforms[0] === option.value ? 'secondary' : 'outline'}
-                    size="sm"
-                    className="h-8 text-xs"
-                    onClick={() => togglePlatformFilter(option.value)}
-                  >
-                    {option.label}
-                  </Button>
-                ))}
+          <div className="rounded-lg border border-border/60 bg-secondary/10 px-4 py-3">
+            <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
+              {/* 标题 + loading */}
+              <div className="flex items-center gap-2 shrink-0">
+                <span className="text-xs font-semibold text-muted-foreground">筛选</span>
+                {isFilterLoading && (
+                  <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground">
+                    <Loader2 className="w-3 h-3 animate-spin" />
+                  </span>
+                )}
               </div>
-            </div>
 
-            <div className="space-y-2">
-              <p className="text-xs text-muted-foreground">对标类型</p>
-              <div className="flex flex-wrap gap-2">
-                {benchmarkOptions.map((option) => (
-                  <Button
-                    key={option.value}
-                    variant={filters.benchmarkTypes[0] === option.value ? 'secondary' : 'outline'}
-                    size="sm"
-                    className="h-8 text-xs"
-                    onClick={() => toggleBenchmarkFilter(option.value)}
-                  >
-                    {option.label}
-                  </Button>
-                ))}
+              {/* 平台 */}
+              <div className="flex items-center gap-1.5">
+                <span className="text-[11px] text-muted-foreground/70 shrink-0">平台</span>
+                <div className="flex items-center gap-1">
+                  {platformOptions.map((option) => (
+                    <button
+                      key={option.value}
+                      className={`px-2.5 py-1 rounded-full text-[11px] font-medium transition-all cursor-pointer border ${filters.platforms[0] === option.value
+                          ? 'bg-primary text-primary-foreground border-primary shadow-sm'
+                          : 'bg-transparent text-muted-foreground border-border/60 hover:border-border hover:text-foreground'
+                        }`}
+                      onClick={() => togglePlatformFilter(option.value)}
+                    >
+                      {option.label}
+                    </button>
+                  ))}
+                </div>
               </div>
-            </div>
 
-            <div className="space-y-2">
-              <p className="text-xs text-muted-foreground">文化</p>
-              <div className="flex flex-wrap gap-2">
-                {cultureOptions.map((option) => (
-                  <Button
-                    key={option.value}
-                    variant={filters.cultureTags.includes(option.value) ? 'secondary' : 'outline'}
-                    size="sm"
-                    className="h-8 text-xs"
-                    onClick={() => toggleFilter('cultureTags', option.value)}
-                  >
-                    {option.label}
-                  </Button>
-                ))}
+              <span className="text-border/60 select-none">|</span>
+
+              {/* 对标类型 */}
+              <div className="flex items-center gap-1.5">
+                <span className="text-[11px] text-muted-foreground/70 shrink-0">对标</span>
+                <div className="flex items-center gap-1">
+                  {benchmarkOptions.map((option) => (
+                    <button
+                      key={option.value}
+                      className={`px-2.5 py-1 rounded-full text-[11px] font-medium transition-all cursor-pointer border ${filters.benchmarkTypes[0] === option.value
+                          ? 'bg-primary text-primary-foreground border-primary shadow-sm'
+                          : 'bg-transparent text-muted-foreground border-border/60 hover:border-border hover:text-foreground'
+                        }`}
+                      onClick={() => toggleBenchmarkFilter(option.value)}
+                    >
+                      {option.label}
+                    </button>
+                  ))}
+                </div>
               </div>
-            </div>
 
-            <div className="space-y-2">
-              <p className="text-xs text-muted-foreground">内容类型</p>
-              <div className="flex flex-wrap gap-2">
-                {contentOptions.map((option) => (
-                  <Button
-                    key={option.value}
-                    variant={filters.contentTags.includes(option.value) ? 'secondary' : 'outline'}
-                    size="sm"
-                    className="h-8 text-xs"
-                    onClick={() => toggleFilter('contentTags', option.value)}
-                  >
-                    {option.label}
-                  </Button>
-                ))}
+              <span className="text-border/60 select-none">|</span>
+
+              {/* 文化 */}
+              <div className="flex items-center gap-1.5">
+                <span className="text-[11px] text-muted-foreground/70 shrink-0">文化</span>
+                <div className="flex items-center gap-1">
+                  {cultureOptions.map((option) => (
+                    <button
+                      key={option.value}
+                      className={`px-2.5 py-1 rounded-full text-[11px] font-medium transition-all cursor-pointer border ${filters.cultureTags.includes(option.value)
+                          ? 'bg-primary text-primary-foreground border-primary shadow-sm'
+                          : 'bg-transparent text-muted-foreground border-border/60 hover:border-border hover:text-foreground'
+                        }`}
+                      onClick={() => toggleFilter('cultureTags', option.value)}
+                    >
+                      {option.label}
+                    </button>
+                  ))}
+                </div>
               </div>
-            </div>
 
-            <div className="space-y-2">
-              <p className="text-xs text-muted-foreground">上传人（Email）</p>
-              <select
-                className="h-9 rounded-md border border-border bg-background px-3 text-sm w-full sm:w-[360px]"
-                value={filters.uploaders[0] || ''}
-                onChange={(e) => handleUploaderChange(e.target.value)}
-              >
-                <option value="">全部上传人</option>
-                {uploaderOptions.map((email) => (
-                  <option key={email} value={email}>
-                    {email}
-                  </option>
-                ))}
-              </select>
+              <span className="text-border/60 select-none">|</span>
+
+              {/* 内容类型 */}
+              <div className="flex items-center gap-1.5">
+                <span className="text-[11px] text-muted-foreground/70 shrink-0">内容</span>
+                <div className="flex items-center gap-1">
+                  {contentOptions.map((option) => (
+                    <button
+                      key={option.value}
+                      className={`px-2.5 py-1 rounded-full text-[11px] font-medium transition-all cursor-pointer border ${filters.contentTags.includes(option.value)
+                          ? 'bg-primary text-primary-foreground border-primary shadow-sm'
+                          : 'bg-transparent text-muted-foreground border-border/60 hover:border-border hover:text-foreground'
+                        }`}
+                      onClick={() => toggleFilter('contentTags', option.value)}
+                    >
+                      {option.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <span className="text-border/60 select-none">|</span>
+
+              {/* 上传人 */}
+              <div className="flex items-center gap-1.5">
+                <span className="text-[11px] text-muted-foreground/70 shrink-0">上传人</span>
+                <select
+                  className="h-7 rounded-full border border-border/60 bg-transparent px-2.5 text-[11px] text-muted-foreground hover:border-border hover:text-foreground transition-all cursor-pointer focus:outline-none focus:border-primary max-w-[180px]"
+                  value={filters.uploaders[0] || ''}
+                  onChange={(e) => handleUploaderChange(e.target.value)}
+                >
+                  <option value="">全部</option>
+                  {uploaderOptions.map((email) => (
+                    <option key={email} value={email}>
+                      {email}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* 清空筛选 */}
+              {hasActiveFilters && (
+                <button
+                  className="ml-auto flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground transition-colors cursor-pointer shrink-0"
+                  onClick={clearFilters}
+                >
+                  <FilterX className="w-3 h-3" />
+                  清空
+                </button>
+              )}
             </div>
           </div>
 
-          {posts.length === 0 && !loading ? (
-            <div className="text-center py-20 border border-dashed border-border rounded-lg">
-              <p className="text-muted-foreground">暂无数据，请添加博主以开始监控。</p>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-              {posts.map((post, index) => (
-                <div key={post.id} className="h-full">
-                  <PostCard post={post} priority={index < 4} />
+          <div className="relative">
+            <div className={`transition-opacity duration-150 ${isFilterLoading ? 'opacity-60' : 'opacity-100'}`}>
+              {posts.length === 0 && !loading ? (
+                <div className="text-center py-20 border border-dashed border-border rounded-lg">
+                  <p className="text-muted-foreground">暂无数据，请添加博主以开始监控。</p>
                 </div>
-              ))}
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                  {posts.map((post, index) => (
+                    <div key={post.id} className="h-full">
+                      <PostCard post={post} priority={index < 4} />
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
-          )}
+            {isFilterLoading && posts.length > 0 && (
+              <div className="absolute inset-0 pointer-events-none flex items-start justify-center pt-8">
+                <div className="rounded-full border border-border bg-background/95 px-3 py-1.5 shadow-sm text-xs inline-flex items-center gap-1.5">
+                  <Loader2 className="w-3.5 h-3.5 animate-spin text-primary" />
+                  正在更新筛选结果...
+                </div>
+              </div>
+            )}
+          </div>
 
-          {loading && (
+          {loading && !isFilterLoading && (
             <div className="flex justify-center py-12">
               <Loader2 className="w-8 h-8 animate-spin text-primary" />
             </div>

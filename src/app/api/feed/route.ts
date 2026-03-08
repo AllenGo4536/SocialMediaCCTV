@@ -49,11 +49,22 @@ interface ProfileTagRow {
     | Array<{ id: string; name: string; group_key: string }>;
 }
 
+interface ProfileTagLookupRow {
+    profile_id: string;
+    tag_id: string;
+}
+
 export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url);
 
-    const page = parseInt(searchParams.get('page') || '1');
-    const limit = Math.min(parseInt(searchParams.get('limit') || '40'), 100);
+    const pageParam = parseInt(searchParams.get('page') || '1', 10);
+    const page = Number.isFinite(pageParam) && pageParam > 0 ? pageParam : 1;
+
+    const limitParam = parseInt(searchParams.get('limit') || '40', 10);
+    const limit = Number.isFinite(limitParam) && limitParam > 0
+        ? Math.min(limitParam, 100)
+        : 40;
+
     const offset = (page - 1) * limit;
 
     const platforms = parseCsvParam(searchParams.get('platforms')).filter(isValidPlatform);
@@ -80,7 +91,7 @@ export async function GET(req: NextRequest) {
             if (uploaderIds.length === 0) {
                 return NextResponse.json({
                     data: [],
-                    meta: { page, limit, total: 0, hasMore: false }
+                    meta: { page, limit, total: null, hasMore: false }
                 });
             }
         }
@@ -108,26 +119,44 @@ export async function GET(req: NextRequest) {
     }
 
     const tagGroupFilters = [benchmarkTags, cultureTags, contentTags].filter((group) => group.length > 0);
-    for (const tagGroup of tagGroupFilters) {
+    if (tagGroupFilters.length > 0) {
+        const allTagIds = [...new Set(tagGroupFilters.flat())];
         const { data: taggedProfiles, error: taggedProfilesError } = await supabaseAdmin
             .from('profile_tags')
-            .select('profile_id')
-            .in('tag_id', tagGroup);
+            .select('profile_id, tag_id')
+            .in('tag_id', allTagIds);
 
         if (taggedProfilesError) {
             return NextResponse.json({ error: taggedProfilesError.message }, { status: 500 });
         }
 
+        const tagHitsByProfile = new Map<string, Set<string>>();
+        for (const row of (taggedProfiles || []) as ProfileTagLookupRow[]) {
+            const current = tagHitsByProfile.get(row.profile_id) || new Set<string>();
+            current.add(row.tag_id);
+            tagHitsByProfile.set(row.profile_id, current);
+        }
+
+        const matchedProfileIds: string[] = [];
+        for (const [profileId, matchedTags] of tagHitsByProfile.entries()) {
+            const matchesAllGroups = tagGroupFilters.every((group) =>
+                group.some((tagId) => matchedTags.has(tagId))
+            );
+            if (matchesAllGroups) {
+                matchedProfileIds.push(profileId);
+            }
+        }
+
         filteredProfileIds = intersectInto(
             filteredProfileIds,
-            (taggedProfiles || []).map((row) => row.profile_id)
+            matchedProfileIds
         );
     }
 
     if (filteredProfileIds && filteredProfileIds.size === 0) {
         return NextResponse.json({
             data: [],
-            meta: { page, limit, total: 0, hasMore: false }
+            meta: { page, limit, total: null, hasMore: false }
         });
     }
 
@@ -135,7 +164,7 @@ export async function GET(req: NextRequest) {
         .from('posts')
         .select(`
       *,
-      profiles!inner (
+        profiles!inner (
         username,
         avatar_url,
         full_name,
@@ -143,7 +172,7 @@ export async function GET(req: NextRequest) {
         created_by,
         profile_url
       )
-    `, { count: 'exact' });
+    `);
 
     if (filteredProfileIds && filteredProfileIds.size > 0) {
         query = query.in('profile_id', [...filteredProfileIds]);
@@ -151,7 +180,7 @@ export async function GET(req: NextRequest) {
 
     const days = searchParams.get('days');
     if (days && days !== 'all') {
-        const daysNum = parseInt(days);
+        const daysNum = parseInt(days, 10);
         if (!isNaN(daysNum)) {
             const date = new Date();
             date.setDate(date.getDate() - daysNum);
@@ -159,15 +188,18 @@ export async function GET(req: NextRequest) {
         }
     }
 
-    const { data, count, error } = await query
+    const { data, error } = await query
         .order('like_count', { ascending: false })
-        .range(offset, offset + limit - 1);
+        .range(offset, offset + limit);
 
     if (error) {
         return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    const safeData = (data || []) as FeedPostRow[];
+    const rawData = (data || []) as FeedPostRow[];
+    const hasMore = rawData.length > limit;
+    const safeData = hasMore ? rawData.slice(0, limit) : rawData;
+
     const profileIds = [...new Set(safeData.map((post) => post.profile_id))];
     const creatorIds = [
         ...new Set(
@@ -178,24 +210,41 @@ export async function GET(req: NextRequest) {
     ];
 
     const creatorEmailMap = new Map<string, string | null>();
-    if (creatorIds.length > 0) {
-        const { data: creators } = await supabaseAdmin
+    const tagsMap = new Map<string, Array<{ id: string; label: string; group: string }>>();
+
+    const creatorsPromise = creatorIds.length > 0
+        ? supabaseAdmin
             .from('app_users')
             .select('id, email')
-            .in('id', creatorIds);
+            .in('id', creatorIds)
+        : Promise.resolve({ data: null, error: null });
 
+    const profileTagsPromise = profileIds.length > 0
+        ? supabaseAdmin
+            .from('profile_tags')
+            .select('profile_id, tag_definitions!inner(id, name, group_key)')
+            .in('profile_id', profileIds)
+        : Promise.resolve({ data: null, error: null });
+
+    const [
+        { data: creators, error: creatorsError },
+        { data: profileTags, error: profileTagsError },
+    ] = await Promise.all([creatorsPromise, profileTagsPromise]);
+
+    if (creatorsError) {
+        return NextResponse.json({ error: creatorsError.message }, { status: 500 });
+    }
+    if (profileTagsError) {
+        return NextResponse.json({ error: profileTagsError.message }, { status: 500 });
+    }
+
+    if (creatorIds.length > 0) {
         if (creators) {
             creators.forEach((user) => creatorEmailMap.set(user.id, user.email));
         }
     }
 
-    const tagsMap = new Map<string, Array<{ id: string; label: string; group: string }>>();
     if (profileIds.length > 0) {
-        const { data: profileTags } = await supabaseAdmin
-            .from('profile_tags')
-            .select('profile_id, tag_definitions!inner(id, name, group_key)')
-            .in('profile_id', profileIds);
-
         if (profileTags) {
             for (const row of profileTags as ProfileTagRow[]) {
                 const tag = Array.isArray(row.tag_definitions)
@@ -231,8 +280,8 @@ export async function GET(req: NextRequest) {
         meta: {
             page,
             limit,
-            total: count,
-            hasMore: count ? (offset + limit < count) : false
+            total: null,
+            hasMore
         }
     });
 }
