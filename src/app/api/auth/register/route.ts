@@ -2,9 +2,18 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 
+interface RegisterPayload {
+    email?: string
+    password?: string
+    inviteCode?: string
+}
+
 export async function POST(req: Request) {
     try {
-        const { email, password, inviteCode } = await req.json()
+        const payload = (await req.json()) as RegisterPayload
+        const email = payload.email?.trim()
+        const password = payload.password
+        const inviteCode = payload.inviteCode?.trim()
 
         if (!email || !password || !inviteCode) {
             return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
@@ -35,6 +44,9 @@ export async function POST(req: Request) {
 
         if (authError) {
             return NextResponse.json({ error: authError.message }, { status: 400 })
+        }
+        if (!authData.user) {
+            return NextResponse.json({ error: 'Failed to create user' }, { status: 500 })
         }
 
         // 3. Record Usage
@@ -72,8 +84,9 @@ export async function POST(req: Request) {
 
         return NextResponse.json({ success: true, user: authData.user })
 
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('Registration error:', error)
-        return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 })
+        const message = error instanceof Error ? error.message : 'Internal Server Error'
+        return NextResponse.json({ error: message }, { status: 500 })
     }
 }

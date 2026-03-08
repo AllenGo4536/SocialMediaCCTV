@@ -38,6 +38,30 @@ export const TAG_DEFINITIONS: TagDefinition[] = [
   { id: 'virtual_idol', label: '虚拟偶像', group: 'content_type' },
 ];
 
+export const PLATFORM_OPTIONS: Array<{ value: Platform; label: string }> = [
+  { value: 'instagram', label: 'Instagram' },
+  { value: 'tiktok', label: 'TikTok' },
+  { value: 'youtube', label: 'YouTube' },
+];
+
+export const BENCHMARK_OPTIONS: Array<{ value: BenchmarkTag; label: string }> = [
+  { value: 'ip_benchmark', label: 'IP对标' },
+  { value: 'aesthetic_benchmark', label: '美学对标' },
+];
+
+export const CULTURE_OPTIONS: Array<{ value: CultureTag; label: string }> = [
+  { value: 'culture_me', label: '中东' },
+  { value: 'culture_west', label: '欧美' },
+];
+
+export const CONTENT_OPTIONS: Array<{ value: ContentTag; label: string }> = [
+  { value: 'style_performance_camera', label: '穿搭/唱跳/运镜' },
+  { value: 'pov', label: 'POV' },
+  { value: 'daily_life', label: '日常记录' },
+  { value: 'asmr', label: 'ASMR' },
+  { value: 'virtual_idol', label: '虚拟偶像' },
+];
+
 const PLATFORM_SET = new Set<string>(PLATFORMS);
 const BENCHMARK_SET = new Set<string>(BENCHMARK_TAGS);
 const CULTURE_SET = new Set<string>(CULTURE_TAGS);
@@ -58,4 +82,3 @@ export function isValidCultureTag(value: string): value is CultureTag {
 export function isValidContentTag(value: string): value is ContentTag {
   return CONTENT_SET.has(value);
 }
-

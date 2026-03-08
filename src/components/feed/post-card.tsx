@@ -1,5 +1,6 @@
 
 import { useEffect, useState } from 'react';
+import Image from 'next/image';
 import { Post } from '@/types';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -177,13 +178,14 @@ export function PostCard({ post, priority = false }: PostCardProps) {
                         referrerPolicy="strict-origin-when-cross-origin"
                     />
                 ) : (
-                    <img
+                    <Image
                         src={coverImageSrc}
                         alt={post.caption || `${platformLabel} Post`}
-                        className="object-cover w-full h-full transition-opacity group-hover:opacity-90"
+                        fill
+                        sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
+                        priority={priority}
+                        className="object-cover transition-opacity group-hover:opacity-90"
                         referrerPolicy="no-referrer"
-                        loading={priority ? 'eager' : 'lazy'}
-                        fetchPriority={priority ? 'high' : 'auto'}
                         onError={() => {
                             if (coverImageSrc !== proxiedImageUrl) {
                                 setCoverImageSrc(proxiedImageUrl);

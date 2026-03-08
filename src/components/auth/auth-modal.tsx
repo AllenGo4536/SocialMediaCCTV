@@ -15,6 +15,13 @@ interface AuthModalProps {
     onClose: () => void;
 }
 
+function getErrorMessage(error: unknown, fallback: string) {
+    if (error instanceof Error && error.message) {
+        return error.message;
+    }
+    return fallback;
+}
+
 export function AuthModal({ isOpen, onClose }: AuthModalProps) {
     const [isLoading, setIsLoading] = useState(false);
     const [activeTab, setActiveTab] = useState("login");
@@ -38,8 +45,8 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
 
             toast.success("欢迎回来！");
             onClose();
-        } catch (error: any) {
-            toast.error(error.message || "登录失败");
+        } catch (error: unknown) {
+            toast.error(getErrorMessage(error, "登录失败"));
         } finally {
             setIsLoading(false);
         }
@@ -77,8 +84,8 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
 
             toast.success("注册成功！");
             onClose();
-        } catch (error: any) {
-            toast.error(error.message);
+        } catch (error: unknown) {
+            toast.error(getErrorMessage(error, "注册失败"));
         } finally {
             setIsLoading(false);
         }

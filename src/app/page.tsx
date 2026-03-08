@@ -9,9 +9,16 @@ import { Post, Profile } from '@/types';
 import { Loader2, FilterX } from 'lucide-react';
 import { toast } from 'sonner';
 import { SiteHeader } from '@/components/layout/site-header';
+import {
+  BENCHMARK_OPTIONS,
+  CONTENT_OPTIONS,
+  CULTURE_OPTIONS,
+  PLATFORM_OPTIONS,
+} from '@/lib/taxonomy';
+import type { Platform } from '@/lib/taxonomy';
 
 interface FeedFilters {
-  platforms: Array<'instagram' | 'tiktok' | 'youtube'>;
+  platforms: Array<Platform>;
   benchmarkTypes: string[];
   cultureTags: string[];
   contentTags: string[];
@@ -27,30 +34,6 @@ const initialFilters: FeedFilters = {
   contentTags: [],
   uploaders: [],
 };
-
-const platformOptions = [
-  { value: 'instagram', label: 'Instagram' },
-  { value: 'tiktok', label: 'TikTok' },
-  { value: 'youtube', label: 'YouTube' },
-] as const;
-
-const benchmarkOptions = [
-  { value: 'ip_benchmark', label: 'IP对标' },
-  { value: 'aesthetic_benchmark', label: '美学对标' },
-];
-
-const cultureOptions = [
-  { value: 'culture_me', label: '中东' },
-  { value: 'culture_west', label: '欧美' },
-];
-
-const contentOptions = [
-  { value: 'style_performance_camera', label: '穿搭/唱跳/运镜' },
-  { value: 'pov', label: 'POV' },
-  { value: 'daily_life', label: '日常记录' },
-  { value: 'asmr', label: 'ASMR' },
-  { value: 'virtual_idol', label: '虚拟偶像' },
-];
 
 function buildFeedUrl(pageNum: number, range: 'all' | '30' | '7', filters: FeedFilters) {
   const params = new URLSearchParams({
@@ -303,7 +286,7 @@ export default function Home() {
               <div className="flex items-center gap-1.5">
                 <span className="text-[11px] text-muted-foreground/70 shrink-0">平台</span>
                 <div className="flex items-center gap-1">
-                  {platformOptions.map((option) => (
+                  {PLATFORM_OPTIONS.map((option) => (
                     <button
                       key={option.value}
                       className={`px-2.5 py-1 rounded-full text-[11px] font-medium transition-all cursor-pointer border ${filters.platforms[0] === option.value
@@ -324,7 +307,7 @@ export default function Home() {
               <div className="flex items-center gap-1.5">
                 <span className="text-[11px] text-muted-foreground/70 shrink-0">对标</span>
                 <div className="flex items-center gap-1">
-                  {benchmarkOptions.map((option) => (
+                  {BENCHMARK_OPTIONS.map((option) => (
                     <button
                       key={option.value}
                       className={`px-2.5 py-1 rounded-full text-[11px] font-medium transition-all cursor-pointer border ${filters.benchmarkTypes[0] === option.value
@@ -345,7 +328,7 @@ export default function Home() {
               <div className="flex items-center gap-1.5">
                 <span className="text-[11px] text-muted-foreground/70 shrink-0">文化</span>
                 <div className="flex items-center gap-1">
-                  {cultureOptions.map((option) => (
+                  {CULTURE_OPTIONS.map((option) => (
                     <button
                       key={option.value}
                       className={`px-2.5 py-1 rounded-full text-[11px] font-medium transition-all cursor-pointer border ${filters.cultureTags.includes(option.value)
@@ -366,7 +349,7 @@ export default function Home() {
               <div className="flex items-center gap-1.5">
                 <span className="text-[11px] text-muted-foreground/70 shrink-0">内容</span>
                 <div className="flex items-center gap-1">
-                  {contentOptions.map((option) => (
+                  {CONTENT_OPTIONS.map((option) => (
                     <button
                       key={option.value}
                       className={`px-2.5 py-1 rounded-full text-[11px] font-medium transition-all cursor-pointer border ${filters.contentTags.includes(option.value)

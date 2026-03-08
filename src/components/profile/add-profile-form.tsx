@@ -8,7 +8,13 @@ import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/components/auth/auth-provider';
 import confetti from 'canvas-confetti';
-import type { Platform } from '@/lib/taxonomy';
+import {
+    BENCHMARK_OPTIONS,
+    CONTENT_OPTIONS,
+    CULTURE_OPTIONS,
+    PLATFORM_OPTIONS,
+} from '@/lib/taxonomy';
+import type { BenchmarkTag, ContentTag, CultureTag, Platform } from '@/lib/taxonomy';
 import {
     Dialog,
     DialogContent,
@@ -23,33 +29,14 @@ interface AddProfileFormProps {
     className?: string;
 }
 
-const platformOptions: Array<{ value: Platform; label: string }> = [
-    { value: 'instagram', label: 'Instagram' },
-    { value: 'tiktok', label: 'TikTok' },
-    { value: 'youtube', label: 'YouTube' },
-];
-
-const cultureTagOptions = [
-    { value: 'culture_me', label: '中东' },
-    { value: 'culture_west', label: '欧美' },
-];
-
-const contentTagOptions = [
-    { value: 'style_performance_camera', label: '穿搭/唱跳/运镜' },
-    { value: 'pov', label: 'POV' },
-    { value: 'daily_life', label: '日常记录' },
-    { value: 'asmr', label: 'ASMR' },
-    { value: 'virtual_idol', label: '虚拟偶像' },
-];
-
 export function AddProfileForm({ onSuccess, className }: AddProfileFormProps) {
     const [open, setOpen] = useState(false);
     const [platform, setPlatform] = useState<Platform>('instagram');
     const [username, setUsername] = useState('');
     const [profileUrl, setProfileUrl] = useState('');
-    const [benchmarkType, setBenchmarkType] = useState<'ip_benchmark' | 'aesthetic_benchmark' | ''>('');
-    const [cultureTags, setCultureTags] = useState<string[]>([]);
-    const [contentTags, setContentTags] = useState<string[]>([]);
+    const [benchmarkType, setBenchmarkType] = useState<BenchmarkTag | ''>('');
+    const [cultureTags, setCultureTags] = useState<CultureTag[]>([]);
+    const [contentTags, setContentTags] = useState<ContentTag[]>([]);
     const [loading, setLoading] = useState(false);
     const { user, session, openAuthModal } = useAuth();
 
@@ -60,10 +47,10 @@ export function AddProfileForm({ onSuccess, className }: AddProfileFormProps) {
         profileUrl.trim().length > 0 &&
         benchmarkType !== '';
 
-    const toggleArrayItem = (
-        array: string[],
-        value: string,
-        setter: Dispatch<SetStateAction<string[]>>
+    const toggleArrayItem = <T extends string>(
+        array: T[],
+        value: T,
+        setter: Dispatch<SetStateAction<T[]>>
     ) => {
         if (array.includes(value)) {
             setter(array.filter((item) => item !== value));
@@ -191,7 +178,7 @@ export function AddProfileForm({ onSuccess, className }: AddProfileFormProps) {
                     <form onSubmit={handleSubmit} className="space-y-3 sm:space-y-4 w-full">
                         <div className="flex flex-col gap-3">
                             <div className="flex gap-2">
-                                {platformOptions.map((option) => (
+                                {PLATFORM_OPTIONS.map((option) => (
                                     <button
                                         key={option.value}
                                         type="button"
@@ -226,32 +213,25 @@ export function AddProfileForm({ onSuccess, className }: AddProfileFormProps) {
                             <div className="space-y-2">
                                 <p className="text-sm font-semibold">对标类型（必选）</p>
                                 <div className="flex flex-wrap gap-2 sm:gap-3 text-sm">
-                                    <label className="inline-flex items-center gap-2">
-                                        <input
-                                            type="radio"
-                                            name="benchmark-type"
-                                            value="ip_benchmark"
-                                            checked={benchmarkType === 'ip_benchmark'}
-                                            onChange={() => setBenchmarkType('ip_benchmark')}
-                                            disabled={loading}
-                                        />
-                                        IP对标
-                                    </label>
-                                    <label className="inline-flex items-center gap-2">
-                                        <input
-                                            type="radio"
-                                            name="benchmark-type"
-                                            value="aesthetic_benchmark"
-                                            checked={benchmarkType === 'aesthetic_benchmark'}
-                                            onChange={() => {
-                                                setBenchmarkType('aesthetic_benchmark');
-                                                setCultureTags([]);
-                                                setContentTags([]);
-                                            }}
-                                            disabled={loading}
-                                        />
-                                        美学对标
-                                    </label>
+                                    {BENCHMARK_OPTIONS.map((option) => (
+                                        <label key={option.value} className="inline-flex items-center gap-2">
+                                            <input
+                                                type="radio"
+                                                name="benchmark-type"
+                                                value={option.value}
+                                                checked={benchmarkType === option.value}
+                                                onChange={() => {
+                                                    setBenchmarkType(option.value);
+                                                    if (option.value === 'aesthetic_benchmark') {
+                                                        setCultureTags([]);
+                                                        setContentTags([]);
+                                                    }
+                                                }}
+                                                disabled={loading}
+                                            />
+                                            {option.label}
+                                        </label>
+                                    ))}
                                 </div>
                             </div>
 
@@ -260,7 +240,7 @@ export function AddProfileForm({ onSuccess, className }: AddProfileFormProps) {
                                     文化（仅 IP 对标）
                                 </p>
                                 <div className="flex flex-wrap gap-2 sm:gap-3 text-sm">
-                                    {cultureTagOptions.map((option) => (
+                                    {CULTURE_OPTIONS.map((option) => (
                                         <label key={option.value} className="inline-flex items-center gap-2">
                                             <input
                                                 type="checkbox"
@@ -279,7 +259,7 @@ export function AddProfileForm({ onSuccess, className }: AddProfileFormProps) {
                                     内容类型（仅 IP 对标，可多选）
                                 </p>
                                 <div className="flex flex-wrap gap-2 sm:gap-3 text-sm">
-                                    {contentTagOptions.map((option) => (
+                                    {CONTENT_OPTIONS.map((option) => (
                                         <label key={option.value} className="inline-flex items-center gap-2">
                                             <input
                                                 type="checkbox"

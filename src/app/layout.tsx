@@ -15,7 +15,12 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+const metadataBaseUrl = process.env.NEXT_PUBLIC_BASE_URL?.startsWith("http")
+  ? process.env.NEXT_PUBLIC_BASE_URL
+  : "http://localhost:3000";
+
 export const metadata: Metadata = {
+  metadataBase: new URL(metadataBaseUrl),
   title: "ViraX - 社媒博主定向监控系统",
   description: "ViraX 内部工具，专注于 Instagram 博主数据监控、素材采集与趋势分析。",
   icons: {
@@ -37,7 +42,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="zh-CN">
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
