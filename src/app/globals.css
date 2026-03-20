@@ -46,66 +46,66 @@
 }
 
 :root {
-  /* Default to Dark Theme Palette provided by User */
-  --background: #0b0f14;
-  --foreground: #e5e7eb;
-  /* Text Primary */
+  --background: #0c1014;
+  --foreground: #f3ede6;
 
-  --card: #111827;
-  --card-foreground: #e5e7eb;
+  --card: #131a22;
+  --card-foreground: #f3ede6;
 
-  --popover: #111827;
-  --popover-foreground: #e5e7eb;
+  --popover: #131a22;
+  --popover-foreground: #f3ede6;
 
-  /* Purple Theme Palette */
-  --primary: #8b5cf6;
-  /* Violet 500 */
+  --primary: #ff6b3d;
   --primary-foreground: #ffffff;
 
-  --secondary: #1e1b4b;
-  /* Deep Indigo */
-  --secondary-foreground: #e5e7eb;
+  --secondary: #1a2430;
+  --secondary-foreground: #f3ede6;
 
-  --muted: #1f2937;
-  --muted-foreground: #9ca3af;
+  --muted: #161d26;
+  --muted-foreground: #95a1af;
 
-  --accent: #2e1065;
-  /* Deep Purple for hover/accent backgrounds */
-  --accent-foreground: #d8b4fe;
-  /* Light Purple text */
+  --accent: #202a36;
+  --accent-foreground: #f8d9cc;
 
   --destructive: #ef4444;
-  /* Keep Red for errors/deletes */
   --destructive-foreground: #ffffff;
 
-  --border: #1f2937;
-  --input: #1f2937;
-  --ring: #8b5cf6;
-  /* Matching Primary */
+  --border: #283241;
+  --input: #283241;
+  --ring: #ff6b3d;
 
   --radius: 0.75rem;
 
-  --chart-1: #8b5cf6;
-  --chart-2: #d8b4fe;
-  --chart-3: #a78bfa;
-  --chart-4: #f4a261;
+  --chart-1: #ff6b3d;
+  --chart-2: #ffb067;
+  --chart-3: #6ec8ff;
+  --chart-4: #58d6a7;
   --chart-5: #e76f51;
 
-  --sidebar: #0b0f14;
-  --sidebar-foreground: #e5e7eb;
+  --sidebar: #0c1014;
+  --sidebar-foreground: #f3ede6;
   --sidebar-primary: #ef4444;
   --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: #111827;
-  --sidebar-accent-foreground: #e5e7eb;
-  --sidebar-border: #1f2937;
+  --sidebar-accent: #131a22;
+  --sidebar-accent-foreground: #f3ede6;
+  --sidebar-border: #283241;
   --sidebar-ring: #ef4444;
 }
 
 body {
   background-color: var(--background);
   color: var(--foreground);
+  background-image:
+    radial-gradient(circle at top left, rgba(255, 107, 61, 0.08), transparent 24rem),
+    radial-gradient(circle at top right, rgba(92, 154, 255, 0.08), transparent 28rem);
+  min-height: 100vh;
 }
 
 * {
   border-color: var(--border);
+}
+
+::selection {
+  background: rgba(255, 107, 61, 0.3);
+  color: var(--foreground);
 }

@@ -42,3 +42,35 @@ export interface Post {
     // Joined fields
     profiles?: Profile;
 }
+
+export type NewsSourcePlatform = 'x' | 'wechat';
+export type NewsIngestMethod = 'manual' | 'auto_tracked';
+export type NewsStatus = 'pending' | 'featured' | 'ignored';
+
+export interface NewsItem {
+    id: string;
+    title: string;
+    summary: string;
+    cover_image_url?: string;
+    source_platform: NewsSourcePlatform;
+    source_url: string;
+    author_name: string;
+    published_at: string;
+    ingest_method: NewsIngestMethod;
+    status: NewsStatus;
+    created_by: string;
+    updated_by: string;
+    tags?: string[];
+    is_top_story?: boolean;
+    source_metadata?: Record<string, string | number | boolean | null>;
+}
+
+export interface TrackedSource {
+    id: string;
+    platform: 'x';
+    handle: string;
+    display_name: string;
+    status: 'active' | 'paused';
+    last_checked_at: string;
+    latest_headline: string;
+}
