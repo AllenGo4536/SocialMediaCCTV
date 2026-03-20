@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from 'react';
-import { FilterX, Loader2, Sparkles } from 'lucide-react';
+import { FilterX, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Post, Profile } from '@/types';
 import { PostCard } from '@/components/feed/post-card';
@@ -207,46 +207,25 @@ export function FeedPageContent() {
 
   return (
     <WorkspaceShell
-      eyebrow="Video Monitoring"
       title="信息流页"
-      description="这里保留现有的视频内容抓取与筛选能力。它和首页的图文资讯板并列存在，用于回看原始社媒素材、横向比较平台内容和补充判断依据。"
+      description="视频素材池"
       actions={<AddProfileForm onSuccess={() => handleRefresh()} />}
     >
-      <section className="grid gap-4 lg:grid-cols-[minmax(0,1.5fr)_minmax(18rem,0.8fr)]">
-        <div className="rounded-[28px] border border-border/70 bg-card/65 p-6">
-          <div className="inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.24em] text-primary">
-            <Sparkles className="h-3.5 w-3.5" />
-            Existing Workflow
+      <section className="grid gap-3 sm:grid-cols-3">
+        {[
+          { label: '当前帖子', value: posts.length, tone: 'text-foreground' },
+          { label: '活跃筛选', value: hasActiveFilters ? '已启用' : '未启用', tone: hasActiveFilters ? 'text-primary' : 'text-muted-foreground' },
+          { label: '时间范围', value: timeRange === 'all' ? '全部' : `近 ${timeRange} 天`, tone: 'text-sky-300' },
+        ].map((item) => (
+          <div key={item.label} className="rounded-2xl border border-border/70 bg-card/60 px-4 py-4">
+            <p className="text-[11px] uppercase tracking-[0.2em] text-muted-foreground">{item.label}</p>
+            <p className={`mt-2 text-xl font-semibold ${item.tone}`}>{item.value}</p>
           </div>
-          <h2 className="mt-4 text-3xl font-semibold tracking-tight text-foreground">
-            视频监控流保持独立，不和图文资讯混在一起。
-          </h2>
-          <p className="mt-3 max-w-3xl text-sm leading-7 text-muted-foreground sm:text-[15px]">
-            当前页沿用原有抓取逻辑和筛选方式，重点是让信息流成为“素材池”，而不是首页的主舞台。顶部新增的录入按钮仍然可以继续维护监控博主。
-          </p>
-        </div>
-
-        <div className="grid gap-4 sm:grid-cols-3 lg:grid-cols-1">
-          {[
-            { label: '当前帖子', value: posts.length, tone: 'text-foreground' },
-            { label: '活跃筛选', value: hasActiveFilters ? '已启用' : '未启用', tone: hasActiveFilters ? 'text-primary' : 'text-muted-foreground' },
-            { label: '时间范围', value: timeRange === 'all' ? '全部' : `近 ${timeRange} 天`, tone: 'text-sky-300' },
-          ].map((item) => (
-            <div key={item.label} className="rounded-[24px] border border-border/70 bg-card/65 p-5">
-              <p className="text-xs uppercase tracking-[0.22em] text-muted-foreground">{item.label}</p>
-              <p className={`mt-3 text-2xl font-semibold ${item.tone}`}>{item.value}</p>
-            </div>
-          ))}
-        </div>
+        ))}
       </section>
 
-      <section className="mt-8 space-y-6">
-        <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
-          <div>
-            <p className="text-xs uppercase tracking-[0.22em] text-muted-foreground">Feed Filters</p>
-            <h2 className="mt-2 text-2xl font-semibold text-foreground">热门帖子</h2>
-          </div>
-
+      <section className="mt-6 space-y-5">
+        <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
           <div className="flex items-center gap-2 rounded-full border border-border/70 bg-card/65 p-1">
             <Button
               variant={timeRange === 'all' ? 'secondary' : 'ghost'}
@@ -275,7 +254,7 @@ export function FeedPageContent() {
           </div>
         </div>
 
-        <div className="rounded-[28px] border border-border/70 bg-card/55 px-4 py-4">
+        <div className="rounded-[24px] border border-border/70 bg-card/55 px-4 py-4">
           <div className="flex flex-wrap items-center gap-x-5 gap-y-3">
             <div className="flex items-center gap-2 shrink-0">
               <span className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">筛选</span>
@@ -397,7 +376,7 @@ export function FeedPageContent() {
         <div className="relative">
           <div className={`transition-opacity duration-150 ${isFilterLoading ? 'opacity-60' : 'opacity-100'}`}>
             {posts.length === 0 && !loading ? (
-              <div className="rounded-[28px] border border-dashed border-border bg-card/40 py-20 text-center">
+              <div className="rounded-[24px] border border-dashed border-border bg-card/40 py-20 text-center">
                 <p className="text-muted-foreground">暂无数据，请添加博主以开始监控。</p>
               </div>
             ) : (
@@ -420,12 +399,6 @@ export function FeedPageContent() {
             </div>
           )}
         </div>
-
-        {loading && !isFilterLoading && (
-          <div className="flex justify-center py-12">
-            <Loader2 className="h-8 w-8 animate-spin text-primary" />
-          </div>
-        )}
       </section>
 
       {!loading && posts.length > 0 && (

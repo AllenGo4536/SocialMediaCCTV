@@ -7,7 +7,7 @@ import { getPlatformLabel, newsItemsSeed, trackedSourcesSeed } from '@/lib/mock-
 import type { NewsItem, NewsSourcePlatform, NewsStatus } from '@/types';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 
@@ -93,6 +93,7 @@ export function NewsAdminPage() {
   const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
+    const existing = editingId ? items.find((item) => item.id === editingId) : null;
     const nextItem: NewsItem = {
       id: editingId ?? `news-${Date.now()}`,
       title: formState.title,
@@ -102,9 +103,9 @@ export function NewsAdminPage() {
       source_platform: formState.source_platform,
       author_name: formState.author_name,
       published_at: new Date(formState.published_at).toISOString(),
-      ingest_method: editingId ? items.find((item) => item.id === editingId)?.ingest_method ?? 'manual' : 'manual',
+      ingest_method: existing?.ingest_method ?? 'manual',
       status: formState.status,
-      created_by: editingId ? items.find((item) => item.id === editingId)?.created_by ?? 'team@virax.local' : 'team@virax.local',
+      created_by: existing?.created_by ?? 'team@virax.local',
       updated_by: 'team@virax.local',
       tags: formState.source_platform === 'x' ? ['手工补录'] : ['公众号摘录'],
     };
@@ -157,9 +158,8 @@ export function NewsAdminPage() {
 
   return (
     <WorkspaceShell
-      eyebrow="Operations Console"
       title="录入后台"
-      description="这里是图文资讯的人工维护入口。先用模拟数据验证录入、筛选和状态流转，再决定后端表结构和自动抓取入库方案。"
+      description="录入与管理"
       actions={
         <Button
           variant="outline"
@@ -171,28 +171,23 @@ export function NewsAdminPage() {
         </Button>
       }
     >
-      <section className="grid gap-4 xl:grid-cols-3">
+      <section className="grid gap-3 sm:grid-cols-3">
         {[
           { label: '总资讯数', value: counts.total, tone: 'text-foreground' },
           { label: '待筛选', value: counts.pending, tone: 'text-amber-200' },
           { label: '已入选首页', value: counts.featured, tone: 'text-emerald-300' },
         ].map((item) => (
-          <Card key={item.label} className="border-border/70 bg-card/65 py-0">
-            <CardContent className="p-5">
-              <p className="text-xs uppercase tracking-[0.22em] text-muted-foreground">{item.label}</p>
-              <p className={`mt-3 text-3xl font-semibold ${item.tone}`}>{item.value}</p>
-            </CardContent>
-          </Card>
+          <div key={item.label} className="rounded-2xl border border-border/70 bg-card/60 px-4 py-4">
+            <p className="text-[11px] uppercase tracking-[0.2em] text-muted-foreground">{item.label}</p>
+            <p className={`mt-2 text-xl font-semibold ${item.tone}`}>{item.value}</p>
+          </div>
         ))}
       </section>
 
-      <section className="mt-8 grid gap-8 xl:grid-cols-[minmax(0,24rem)_minmax(0,1fr)]">
-        <Card className="border-border/70 bg-card/65 py-0 xl:sticky xl:top-28">
+      <section className="mt-6 grid gap-6 xl:grid-cols-[minmax(0,22rem)_minmax(0,1fr)]">
+        <Card className="border-border/70 bg-card/65 py-0 xl:sticky xl:top-24">
           <CardHeader className="px-6 pt-6">
             <CardTitle>{editingId ? '编辑资讯' : '新增资讯'}</CardTitle>
-            <CardDescription>
-              第一版先支持手工录入 `X` 与 `微信公众号` 内容。自动抓取的结果以后也会进入同一个候选池。
-            </CardDescription>
           </CardHeader>
           <CardContent className="px-6 pb-6">
             <form className="space-y-4" onSubmit={handleSubmit}>
@@ -307,11 +302,6 @@ export function NewsAdminPage() {
                 className="gap-5"
               >
                 <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
-                  <div>
-                    <p className="text-xs uppercase tracking-[0.22em] text-muted-foreground">资讯池</p>
-                    <h2 className="mt-2 text-2xl font-semibold text-foreground">内容筛选与状态流转</h2>
-                  </div>
-
                   <div className="flex flex-wrap items-center gap-3">
                     <TabsList className="h-auto rounded-full border border-border/70 bg-background/70 p-1">
                       <TabsTrigger value="all" className="rounded-full px-4">全部</TabsTrigger>
@@ -354,7 +344,7 @@ export function NewsAdminPage() {
                     {filteredItems.map((item) => (
                       <article
                         key={item.id}
-                        className="rounded-[24px] border border-border/70 bg-background/65 p-5"
+                        className="rounded-[20px] border border-border/70 bg-background/65 p-5"
                       >
                         <div className="flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
                           <div className="min-w-0 flex-1 space-y-3">
@@ -376,8 +366,6 @@ export function NewsAdminPage() {
                               <span>{item.author_name}</span>
                               <span className="text-border">•</span>
                               <span>{item.created_by}</span>
-                              <span className="text-border">•</span>
-                              <span>{item.ingest_method === 'manual' ? '手工录入' : '自动跟踪'}</span>
                             </div>
                           </div>
 
@@ -413,11 +401,8 @@ export function NewsAdminPage() {
             <CardHeader className="px-6 pt-6">
               <CardTitle className="flex items-center gap-2">
                 <RadioTower className="h-5 w-5 text-primary" />
-                X 定向来源预留区
+                X 定向来源
               </CardTitle>
-              <CardDescription>
-                第二阶段将把自动抓取来源管理接进这里。当前先用静态数据表达结构，不绑定真实 API。
-              </CardDescription>
             </CardHeader>
             <CardContent className="px-6 pb-6">
               <div className="space-y-3">

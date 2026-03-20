@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from 'react';
-import { ArrowUpRight, Clock3, FilterX, Newspaper, RadioTower, Sparkles, TrendingUp } from 'lucide-react';
+import { ArrowUpRight, Clock3, FilterX } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -54,9 +54,7 @@ function NewsHeroCard({
       rel="noopener noreferrer"
       className="group block h-full"
     >
-      <article
-        className="relative h-full overflow-hidden rounded-[28px] border border-border/70 bg-card/85 transition-transform duration-300 group-hover:-translate-y-1"
-      >
+      <article className="relative h-full overflow-hidden rounded-[24px] border border-border/70 bg-card/85 transition-transform duration-300 group-hover:-translate-y-1">
         {item.cover_image_url ? (
           <div className="absolute inset-0">
             <div
@@ -68,11 +66,9 @@ function NewsHeroCard({
           </div>
         ) : null}
 
-        <div className={`relative flex h-full flex-col justify-between p-6 ${large ? 'min-h-[25rem]' : 'min-h-[12rem]'}`}>
+        <div className={`relative flex h-full flex-col justify-between p-5 ${large ? 'min-h-[23rem]' : 'min-h-[11.25rem]'}`}>
           <div className="flex items-center justify-between gap-3">
-            <Badge className={accent}>
-              {getPlatformLabel(item.source_platform)}
-            </Badge>
+            <Badge className={accent}>{getPlatformLabel(item.source_platform)}</Badge>
             <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
               <Clock3 className="h-3.5 w-3.5" />
               {formatRelativeTime(item.published_at)}
@@ -80,18 +76,16 @@ function NewsHeroCard({
           </div>
 
           <div className="space-y-3">
-            <h2 className={`max-w-2xl font-semibold tracking-tight text-balance text-foreground ${large ? 'text-3xl leading-tight' : 'text-xl leading-snug'}`}>
+            <h2 className={`max-w-2xl font-semibold tracking-tight text-balance text-foreground ${large ? 'text-[28px] leading-tight' : 'text-lg leading-snug'}`}>
               {item.title}
             </h2>
-            <p className={`max-w-2xl text-muted-foreground ${large ? 'text-base leading-7' : 'text-sm leading-6'}`}>
+            <p className={`max-w-2xl text-muted-foreground ${large ? 'text-sm leading-6' : 'text-sm leading-6'}`}>
               {item.summary}
             </p>
             <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
               <span>{item.author_name}</span>
               <span className="text-border">•</span>
               <span>{formatDateLabel(item.published_at)}</span>
-              <span className="text-border">•</span>
-              <span>{item.ingest_method === 'manual' ? '人工录入' : '自动跟踪后人工入选'}</span>
             </div>
           </div>
         </div>
@@ -106,21 +100,13 @@ function NewsListItem({ item }: { item: NewsItem }) {
       href={item.source_url}
       target="_blank"
       rel="noopener noreferrer"
-      className="group block rounded-[24px] border border-border/70 bg-card/60 p-5 transition-all hover:border-primary/40 hover:bg-card/85"
+      className="group block rounded-[20px] border border-border/70 bg-card/60 p-5 transition-all hover:border-primary/40 hover:bg-card/85"
     >
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0 space-y-3">
           <div className="flex flex-wrap items-center gap-2">
             <Badge variant="outline" className="border-border/70 bg-background/70 text-muted-foreground">
               {getPlatformLabel(item.source_platform)}
-            </Badge>
-            <Badge
-              className={item.ingest_method === 'manual'
-                ? 'border-transparent bg-primary/12 text-primary'
-                : 'border-transparent bg-sky-500/12 text-sky-300'}
-              variant="secondary"
-            >
-              {item.ingest_method === 'manual' ? '手工录入' : '自动跟踪'}
             </Badge>
             <span className="text-xs text-muted-foreground">{formatDateLabel(item.published_at)}</span>
           </div>
@@ -168,92 +154,29 @@ export function NewsPage() {
 
   const topStories = featuredItems.filter((item) => item.is_top_story).slice(0, 3);
   const listStories = featuredItems.filter((item) => !topStories.some((topStory) => topStory.id === item.id));
-
   const activeFilters = platformFilter !== 'all' || rangeFilter !== 'all';
 
   return (
     <WorkspaceShell
-      eyebrow="Editorial Intelligence"
       title="内部热点资讯"
-      description="把团队真正要看的行业观察、平台动态和内容方法论从原始素材里筛出来。当前页面只展示已入选的图文资讯，所有自动内容都默认经过人工确认。"
+      description="已入选资讯"
     >
-      <section className="grid gap-4 lg:grid-cols-[minmax(0,1.6fr)_minmax(19rem,0.9fr)]">
-        <Card className="overflow-hidden border-border/70 bg-card/75 py-0">
-          <CardContent className="relative px-6 py-6 sm:px-8 sm:py-8">
-            <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-primary/60 to-transparent" />
-            <div className="grid gap-6 md:grid-cols-[minmax(0,1fr)_15rem] md:items-end">
-              <div className="space-y-4">
-                <div className="inline-flex items-center gap-2 rounded-full border border-primary/25 bg-primary/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.22em] text-primary">
-                  <Sparkles className="h-3.5 w-3.5" />
-                  Newsroom Brief
-                </div>
-                <div className="space-y-3">
-                  <h2 className="max-w-3xl text-3xl font-semibold tracking-tight text-foreground sm:text-[2.6rem]">
-                    首页先看结论，原始信息留给后续追溯。
-                  </h2>
-                  <p className="max-w-2xl text-sm leading-7 text-muted-foreground sm:text-[15px]">
-                    这是面向内部团队的热点资讯板。公众号文章负责深读，X 负责预警，自动跟踪内容只有在人工确认后才会出现在这里。
-                  </p>
-                </div>
-              </div>
-
-              <div className="grid gap-3">
-                <div className="rounded-2xl border border-border/70 bg-background/75 p-4">
-                  <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">已入选资讯</p>
-                  <p className="mt-3 text-3xl font-semibold text-foreground">{featuredItems.length}</p>
-                </div>
-                <div className="rounded-2xl border border-border/70 bg-background/75 p-4">
-                  <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">今日自动信号</p>
-                  <p className="mt-3 text-3xl font-semibold text-foreground">
-                    {newsItemsSeed.filter((item) => item.ingest_method === 'auto_tracked').length}
-                  </p>
-                </div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <div className="grid gap-4 sm:grid-cols-3 lg:grid-cols-1">
-          {[
-            {
-              label: '优先来源',
-              value: 'X + 公众号',
-              icon: RadioTower,
-              tone: 'text-sky-300 bg-sky-500/10 border-sky-500/20',
-            },
-            {
-              label: '筛选逻辑',
-              value: '人工确认后上首页',
-              icon: Newspaper,
-              tone: 'text-primary bg-primary/10 border-primary/20',
-            },
-            {
-              label: '看板目标',
-              value: '团队日常情报汇总',
-              icon: TrendingUp,
-              tone: 'text-emerald-300 bg-emerald-500/10 border-emerald-500/20',
-            },
-          ].map((item) => (
-            <Card key={item.label} className="border-border/70 bg-card/65 py-0">
-              <CardContent className="p-5">
-                <div className={`inline-flex rounded-2xl border p-3 ${item.tone}`}>
-                  <item.icon className="h-5 w-5" />
-                </div>
-                <p className="mt-4 text-xs uppercase tracking-[0.2em] text-muted-foreground">{item.label}</p>
-                <p className="mt-2 text-lg font-medium leading-7 text-foreground">{item.value}</p>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+      <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        {[
+          { label: '已入选', value: featuredItems.length },
+          { label: 'Top Stories', value: topStories.length },
+          { label: '自动来源', value: newsItemsSeed.filter((item) => item.ingest_method === 'auto_tracked').length },
+          { label: '来源平台', value: 'X + 公众号' },
+        ].map((item) => (
+          <div key={item.label} className="rounded-2xl border border-border/70 bg-card/60 px-4 py-4">
+            <p className="text-[11px] uppercase tracking-[0.2em] text-muted-foreground">{item.label}</p>
+            <p className="mt-2 text-xl font-semibold text-foreground">{item.value}</p>
+          </div>
+        ))}
       </section>
 
-      <section className="mt-8 rounded-[28px] border border-border/70 bg-card/55 p-4 sm:p-5">
-        <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
-          <div>
-            <p className="text-xs uppercase tracking-[0.22em] text-muted-foreground">筛选</p>
-            <h2 className="mt-2 text-xl font-semibold text-foreground">先按来源和时间收敛，再看卡片层级</h2>
-          </div>
-
+      <section className="mt-6 rounded-[24px] border border-border/70 bg-card/55 p-3 sm:p-4">
+        <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
           <div className="flex flex-wrap items-center gap-3">
             <div className="rounded-full border border-border/70 bg-background/70 p-1">
               <Button
@@ -294,96 +217,55 @@ export function NewsPage() {
                 </Button>
               ))}
             </div>
-
-            {activeFilters && (
-              <Button
-                variant="ghost"
-                size="sm"
-                className="rounded-full text-muted-foreground"
-                onClick={() => {
-                  setPlatformFilter('all');
-                  setRangeFilter('all');
-                }}
-              >
-                <FilterX className="h-4 w-4" />
-                清空筛选
-              </Button>
-            )}
           </div>
+
+          {activeFilters ? (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="rounded-full text-muted-foreground"
+              onClick={() => {
+                setPlatformFilter('all');
+                setRangeFilter('all');
+              }}
+            >
+              <FilterX className="h-4 w-4" />
+              清空筛选
+            </Button>
+          ) : null}
         </div>
       </section>
 
-      <section className="mt-8 grid gap-6 xl:grid-cols-[minmax(0,1.45fr)_minmax(18rem,0.95fr)]">
-        <div className="space-y-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-xs uppercase tracking-[0.22em] text-muted-foreground">Top Stories</p>
-              <h2 className="mt-2 text-2xl font-semibold text-foreground">重点资讯区</h2>
+      <section className="mt-6">
+        {topStories.length === 0 ? (
+          <Card className="border-dashed border-border/70 bg-card/40 py-0">
+            <CardContent className="p-8 text-center text-muted-foreground">
+              当前筛选条件下暂无已入选资讯。
+            </CardContent>
+          </Card>
+        ) : (
+          <div className="grid gap-4 lg:grid-cols-[minmax(0,1.18fr)_minmax(18rem,0.82fr)]">
+            <NewsHeroCard item={topStories[0]} accent="border-transparent bg-primary/12 text-primary" large />
+            <div className="grid gap-4">
+              {topStories.slice(1).map((item) => (
+                <NewsHeroCard
+                  key={item.id}
+                  item={item}
+                  accent={item.source_platform === 'x'
+                    ? 'border-transparent bg-sky-500/12 text-sky-300'
+                    : 'border-transparent bg-amber-500/12 text-amber-200'}
+                />
+              ))}
             </div>
           </div>
-
-          {topStories.length === 0 ? (
-            <Card className="border-dashed border-border/70 bg-card/40 py-0">
-              <CardContent className="p-8 text-center text-muted-foreground">
-                当前筛选条件下暂无已入选资讯。
-              </CardContent>
-            </Card>
-          ) : (
-            <div className="grid gap-5 lg:grid-cols-[minmax(0,1.2fr)_minmax(17rem,0.85fr)]">
-              <NewsHeroCard item={topStories[0]} accent="border-transparent bg-primary/12 text-primary" large />
-              <div className="grid gap-5">
-                {topStories.slice(1).map((item) => (
-                  <NewsHeroCard
-                    key={item.id}
-                    item={item}
-                    accent={item.source_platform === 'x'
-                      ? 'border-transparent bg-sky-500/12 text-sky-300'
-                      : 'border-transparent bg-amber-500/12 text-amber-200'}
-                  />
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-
-        <Card className="border-border/70 bg-card/65 py-0">
-          <CardContent className="p-6">
-            <p className="text-xs uppercase tracking-[0.22em] text-muted-foreground">Board Notes</p>
-            <div className="mt-4 space-y-4">
-              <div className="rounded-2xl border border-border/70 bg-background/70 p-4">
-                <p className="text-sm font-medium text-foreground">今日优先关注</p>
-                <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                  先确认 X 自动跟踪的候选内容里，哪些值得被人工摘录成摘要，再决定是否进入首页。
-                </p>
-              </div>
-              <div className="rounded-2xl border border-border/70 bg-background/70 p-4">
-                <p className="text-sm font-medium text-foreground">公众号策略</p>
-                <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                  当前只做人工录入和外链跳转，不做正文抓取。前端上优先验证“卡片是否足够表达价值”。
-                </p>
-              </div>
-              <div className="rounded-2xl border border-border/70 bg-background/70 p-4">
-                <p className="text-sm font-medium text-foreground">下阶段后端重点</p>
-                <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                  先确认 X API 字段，再设计 `news_items` 与 `tracked_sources`。当前界面已经预留状态和来源概念。
-                </p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+        )}
       </section>
 
-      <section className="mt-10">
-        <div className="mb-5 flex items-center justify-between">
-          <div>
-            <p className="text-xs uppercase tracking-[0.22em] text-muted-foreground">Latest</p>
-            <h2 className="mt-2 text-2xl font-semibold text-foreground">最新资讯列表</h2>
-          </div>
-          <p className="text-sm text-muted-foreground">
-            共 {featuredItems.length} 条已入选资讯
-          </p>
+      <section className="mt-8">
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="text-lg font-semibold text-foreground">最新资讯</h2>
+          <p className="text-sm text-muted-foreground">{featuredItems.length} 条</p>
         </div>
-
         <div className="space-y-4">
           {listStories.map((item) => (
             <NewsListItem key={item.id} item={item} />
