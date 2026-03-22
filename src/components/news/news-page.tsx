@@ -1,10 +1,13 @@
 "use client";
 
 import { useEffect, useMemo, useState } from 'react';
+import type { DateRange } from 'react-day-picker';
 import { ArrowUpRight, Clock3, FilterX, Loader2 } from 'lucide-react';
+import { matchesDateRange } from '@/lib/date-range';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import { DateRangeFilter } from '@/components/ui/date-range-filter';
 import { WorkspaceShell } from '@/components/layout/workspace-shell';
 import { getPlatformLabel, isWithinDays } from '@/lib/mock-news-data';
 import type { NewsItem, NewsSourcePlatform } from '@/types';
@@ -128,6 +131,7 @@ function NewsDiscoverCard({ item }: { item: NewsItem }) {
 export function NewsPage() {
   const [platformFilter, setPlatformFilter] = useState<NewsSourcePlatform | 'all'>('all');
   const [rangeFilter, setRangeFilter] = useState<RangeFilter>('all');
+  const [dateRange, setDateRange] = useState<DateRange | undefined>();
   const [items, setItems] = useState<NewsItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -155,10 +159,11 @@ export function NewsPage() {
         if (rangeFilter === 'all') return true;
         return isWithinDays(item.published_at, Number(rangeFilter));
       })
+      .filter((item) => matchesDateRange(item.published_at, dateRange))
       .sort((a, b) => +new Date(b.published_at) - +new Date(a.published_at));
-  }, [items, platformFilter, rangeFilter]);
+  }, [dateRange, items, platformFilter, rangeFilter]);
 
-  const activeFilters = platformFilter !== 'all' || rangeFilter !== 'all';
+  const activeFilters = platformFilter !== 'all' || rangeFilter !== 'all' || Boolean(dateRange?.from);
 
   return (
     <WorkspaceShell
@@ -215,12 +220,25 @@ export function NewsPage() {
                   variant={rangeFilter === option.value ? 'secondary' : 'ghost'}
                   size="sm"
                   className="rounded-full"
-                  onClick={() => setRangeFilter(option.value as RangeFilter)}
+                  onClick={() => {
+                    setRangeFilter(option.value as RangeFilter);
+                    setDateRange(undefined);
+                  }}
                 >
                   {option.label}
                 </Button>
               ))}
             </div>
+
+            <DateRangeFilter
+              value={dateRange}
+              onChange={(range) => {
+                setDateRange(range);
+                setRangeFilter('all');
+              }}
+              align="start"
+              triggerClassName="h-10 min-w-[15rem]"
+            />
           </div>
 
           {activeFilters ? (
@@ -231,6 +249,7 @@ export function NewsPage() {
               onClick={() => {
                 setPlatformFilter('all');
                 setRangeFilter('all');
+                setDateRange(undefined);
               }}
             >
               <FilterX className="h-4 w-4" />

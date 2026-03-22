@@ -2,19 +2,17 @@
 
 import type { KeyboardEvent, MouseEvent } from 'react';
 import { useEffect, useMemo, useState } from 'react';
-import { endOfDay, format, startOfDay } from 'date-fns';
-import { zhCN } from 'date-fns/locale';
-import { ArrowUpRight, CalendarRange, Clock3, Loader2, RadioTower, Trash2, X } from 'lucide-react';
+import { ArrowUpRight, Clock3, Loader2, RadioTower, Trash2 } from 'lucide-react';
 import type { DateRange } from 'react-day-picker';
 import { toast } from 'sonner';
+import { matchesDateRange } from '@/lib/date-range';
 import { getPlatformLabel } from '@/lib/mock-news-data';
 import type { NewsItem, NewsSourcePlatform, NewsStatus } from '@/types';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Calendar } from '@/components/ui/calendar';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { DateRangeFilter } from '@/components/ui/date-range-filter';
 import { Input } from '@/components/ui/input';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { NewsAdminShell } from '@/components/news/news-admin-shell';
 import {
@@ -23,36 +21,6 @@ import {
   statusLabels,
   statusTone,
 } from '@/components/news/news-admin-shared';
-
-function matchesDateRange(value: string, range: DateRange | undefined) {
-  if (!range?.from) {
-    return true;
-  }
-
-  const timestamp = new Date(value).getTime();
-  if (Number.isNaN(timestamp)) {
-    return false;
-  }
-
-  const start = startOfDay(range.from).getTime();
-  const end = endOfDay(range.to ?? range.from).getTime();
-
-  return timestamp >= start && timestamp <= end;
-}
-
-function formatDateRangeLabel(range: DateRange | undefined) {
-  if (!range?.from) {
-    return '选择日期范围';
-  }
-
-  const from = format(range.from, 'MM/dd', { locale: zhCN });
-
-  if (!range.to) {
-    return `${from} - 至今`;
-  }
-
-  return `${from} - ${format(range.to, 'MM/dd', { locale: zhCN })}`;
-}
 
 export function NewsAdminArticlesPage() {
   const [items, setItems] = useState<NewsItem[]>([]);
@@ -280,66 +248,7 @@ export function NewsAdminArticlesPage() {
                   </div>
 
                   <div className="flex flex-wrap items-center gap-2 xl:justify-end">
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <Button
-                          variant="outline"
-                          className="h-12 min-w-[16rem] justify-between rounded-full border-border/70 bg-background/70 px-4 text-left text-sm hover:bg-accent/60"
-                        >
-                          <span className="flex items-center gap-2">
-                            <CalendarRange className="h-4 w-4 text-primary" />
-                            <span className={dateRange?.from ? 'text-foreground' : 'text-muted-foreground'}>
-                              {formatDateRangeLabel(dateRange)}
-                            </span>
-                          </span>
-                          {dateRange?.from ? (
-                            <span className="rounded-full bg-primary/12 px-2 py-1 text-[11px] text-primary">
-                              已筛选
-                            </span>
-                          ) : (
-                            <span className="text-xs text-muted-foreground">发布日期</span>
-                          )}
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent
-                        align="end"
-                        className="w-[22rem] overflow-hidden"
-                      >
-                        <div className="border-b border-border/70 px-4 py-3">
-                          <p className="text-sm font-medium text-foreground">发布日期范围</p>
-                          <p className="mt-1 text-xs text-muted-foreground">
-                            选择从哪天到哪天，列表会按发布时间即时筛选。
-                          </p>
-                        </div>
-
-                        <Calendar
-                          mode="range"
-                          locale={zhCN}
-                          selected={dateRange}
-                          onSelect={setDateRange}
-                          numberOfMonths={1}
-                          defaultMonth={dateRange?.from}
-                          className="bg-card/95"
-                        />
-
-                        <div className="flex items-center justify-between border-t border-border/70 px-4 py-3">
-                          <p className="text-xs text-muted-foreground">
-                            {dateRange?.from ? '包含起止当天' : '未设置日期筛选'}
-                          </p>
-                          {dateRange?.from ? (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="rounded-full text-muted-foreground hover:text-foreground"
-                              onClick={() => setDateRange(undefined)}
-                            >
-                              <X className="h-4 w-4" />
-                              清除
-                            </Button>
-                          ) : null}
-                        </div>
-                      </PopoverContent>
-                    </Popover>
+                    <DateRangeFilter value={dateRange} onChange={setDateRange} />
                   </div>
                 </div>
 
