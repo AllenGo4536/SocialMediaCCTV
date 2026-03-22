@@ -216,9 +216,9 @@ export function FeedPageContent() {
           { label: '活跃筛选', value: hasActiveFilters ? '已启用' : '未启用', tone: hasActiveFilters ? 'text-primary' : 'text-muted-foreground' },
           { label: '时间范围', value: timeRange === 'all' ? '全部' : `近 ${timeRange} 天`, tone: 'text-sky-300' },
         ].map((item) => (
-          <div key={item.label} className="rounded-2xl border border-border/70 bg-card/60 px-4 py-4">
+          <div key={item.label} className="rounded-2xl border border-border/70 bg-card/60 px-4 py-3">
             <p className="text-[11px] uppercase tracking-[0.2em] text-muted-foreground">{item.label}</p>
-            <p className={`mt-2 text-xl font-semibold ${item.tone}`}>{item.value}</p>
+            <p className={`mt-1.5 text-[15px] font-medium ${item.tone}`}>{item.value}</p>
           </div>
         ))}
       </section>
@@ -379,7 +379,7 @@ export function FeedPageContent() {
                 <p className="text-muted-foreground">暂无数据，请添加博主以开始监控。</p>
               </div>
             ) : (
-              <div className="grid grid-cols-2 gap-3 sm:gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+              <div className="grid grid-cols-1 gap-4 sm:gap-6 md:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
                 {posts.map((post, index) => (
                   <div key={post.id} className="h-full">
                     <PostCard post={post} priority={index < 4} />

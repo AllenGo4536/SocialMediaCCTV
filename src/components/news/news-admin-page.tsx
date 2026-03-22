@@ -1,14 +1,20 @@
 "use client";
 
+import type { KeyboardEvent, MouseEvent } from 'react';
 import { useEffect, useMemo, useState } from 'react';
-import { Clock3, Loader2, RadioTower, Trash2 } from 'lucide-react';
+import { endOfDay, format, startOfDay } from 'date-fns';
+import { zhCN } from 'date-fns/locale';
+import { ArrowUpRight, CalendarRange, Clock3, Loader2, RadioTower, Trash2, X } from 'lucide-react';
+import type { DateRange } from 'react-day-picker';
 import { toast } from 'sonner';
 import { getPlatformLabel } from '@/lib/mock-news-data';
 import type { NewsItem, NewsSourcePlatform, NewsStatus } from '@/types';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Calendar } from '@/components/ui/calendar';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { NewsAdminShell } from '@/components/news/news-admin-shell';
 import {
@@ -18,10 +24,41 @@ import {
   statusTone,
 } from '@/components/news/news-admin-shared';
 
+function matchesDateRange(value: string, range: DateRange | undefined) {
+  if (!range?.from) {
+    return true;
+  }
+
+  const timestamp = new Date(value).getTime();
+  if (Number.isNaN(timestamp)) {
+    return false;
+  }
+
+  const start = startOfDay(range.from).getTime();
+  const end = endOfDay(range.to ?? range.from).getTime();
+
+  return timestamp >= start && timestamp <= end;
+}
+
+function formatDateRangeLabel(range: DateRange | undefined) {
+  if (!range?.from) {
+    return '选择日期范围';
+  }
+
+  const from = format(range.from, 'MM/dd', { locale: zhCN });
+
+  if (!range.to) {
+    return `${from} - 至今`;
+  }
+
+  return `${from} - ${format(range.to, 'MM/dd', { locale: zhCN })}`;
+}
+
 export function NewsAdminArticlesPage() {
   const [items, setItems] = useState<NewsItem[]>([]);
   const [activeTab, setActiveTab] = useState<'all' | NewsStatus>('all');
   const [platformFilter, setPlatformFilter] = useState<NewsSourcePlatform | 'all'>('all');
+  const [dateRange, setDateRange] = useState<DateRange | undefined>();
   const [sourceUrl, setSourceUrl] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [isImporting, setIsImporting] = useState(false);
@@ -30,9 +67,10 @@ export function NewsAdminArticlesPage() {
     return items.filter((item) => {
       const matchesStatus = activeTab === 'all' || item.status === activeTab;
       const matchesPlatform = platformFilter === 'all' || item.source_platform === platformFilter;
-      return matchesStatus && matchesPlatform;
+      const matchesPublishedAt = matchesDateRange(item.published_at, dateRange);
+      return matchesStatus && matchesPlatform && matchesPublishedAt;
     });
-  }, [activeTab, items, platformFilter]);
+  }, [activeTab, dateRange, items, platformFilter]);
 
   const counts = useMemo(() => {
     return {
@@ -148,6 +186,15 @@ export function NewsAdminArticlesPage() {
     }
   };
 
+  const openSourceUrl = (sourceUrl: string) => {
+    if (!sourceUrl) return;
+    window.open(sourceUrl, '_blank', 'noopener,noreferrer');
+  };
+
+  const stopCardNavigation = (event: MouseEvent<HTMLElement> | KeyboardEvent<HTMLElement>) => {
+    event.stopPropagation();
+  };
+
   return (
     <NewsAdminShell>
       <section className="grid gap-3 sm:grid-cols-3">
@@ -231,6 +278,69 @@ export function NewsAdminArticlesPage() {
                       </Button>
                     </div>
                   </div>
+
+                  <div className="flex flex-wrap items-center gap-2 xl:justify-end">
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          className="h-12 min-w-[16rem] justify-between rounded-full border-border/70 bg-background/70 px-4 text-left text-sm hover:bg-accent/60"
+                        >
+                          <span className="flex items-center gap-2">
+                            <CalendarRange className="h-4 w-4 text-primary" />
+                            <span className={dateRange?.from ? 'text-foreground' : 'text-muted-foreground'}>
+                              {formatDateRangeLabel(dateRange)}
+                            </span>
+                          </span>
+                          {dateRange?.from ? (
+                            <span className="rounded-full bg-primary/12 px-2 py-1 text-[11px] text-primary">
+                              已筛选
+                            </span>
+                          ) : (
+                            <span className="text-xs text-muted-foreground">发布日期</span>
+                          )}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent
+                        align="end"
+                        className="w-[22rem] overflow-hidden"
+                      >
+                        <div className="border-b border-border/70 px-4 py-3">
+                          <p className="text-sm font-medium text-foreground">发布日期范围</p>
+                          <p className="mt-1 text-xs text-muted-foreground">
+                            选择从哪天到哪天，列表会按发布时间即时筛选。
+                          </p>
+                        </div>
+
+                        <Calendar
+                          mode="range"
+                          locale={zhCN}
+                          selected={dateRange}
+                          onSelect={setDateRange}
+                          numberOfMonths={1}
+                          defaultMonth={dateRange?.from}
+                          className="bg-card/95"
+                        />
+
+                        <div className="flex items-center justify-between border-t border-border/70 px-4 py-3">
+                          <p className="text-xs text-muted-foreground">
+                            {dateRange?.from ? '包含起止当天' : '未设置日期筛选'}
+                          </p>
+                          {dateRange?.from ? (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="rounded-full text-muted-foreground hover:text-foreground"
+                              onClick={() => setDateRange(undefined)}
+                            >
+                              <X className="h-4 w-4" />
+                              清除
+                            </Button>
+                          ) : null}
+                        </div>
+                      </PopoverContent>
+                    </Popover>
+                  </div>
                 </div>
 
                 <TabsContent value={activeTab} className="mt-0">
@@ -247,7 +357,16 @@ export function NewsAdminArticlesPage() {
                     ) : filteredItems.map((item) => (
                       <article
                         key={item.id}
-                        className="rounded-[20px] border border-border/70 bg-background/65 p-5"
+                        role="link"
+                        tabIndex={0}
+                        onClick={() => openSourceUrl(item.source_url)}
+                        onKeyDown={(event) => {
+                          if (event.key === 'Enter' || event.key === ' ') {
+                            event.preventDefault();
+                            openSourceUrl(item.source_url);
+                          }
+                        }}
+                        className="cursor-pointer rounded-[20px] border border-border/70 bg-background/65 p-5 transition hover:border-primary/60 hover:bg-background/80 focus:outline-none focus:ring-2 focus:ring-primary/60"
                       >
                         <div className="flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
                           <div className="min-w-0 flex-1 space-y-3">
@@ -262,17 +381,47 @@ export function NewsAdminArticlesPage() {
                               </span>
                             </div>
                             <div className="space-y-2">
-                              <h3 className="text-lg font-medium leading-7 text-foreground">{item.title}</h3>
-                              <p className="text-sm leading-6 text-muted-foreground">{item.summary}</p>
+                              <div className="flex items-start gap-2">
+                                <h3
+                                  className="text-lg font-medium leading-7 text-foreground"
+                                  style={{
+                                    display: '-webkit-box',
+                                    WebkitLineClamp: 2,
+                                    WebkitBoxOrient: 'vertical',
+                                    overflow: 'hidden',
+                                  }}
+                                >
+                                  {item.title}
+                                </h3>
+                                <ArrowUpRight className="mt-1 h-4 w-4 shrink-0 text-muted-foreground" />
+                              </div>
+                              <p
+                                className="text-sm leading-6 text-muted-foreground"
+                                style={{
+                                  display: '-webkit-box',
+                                  WebkitLineClamp: 4,
+                                  WebkitBoxOrient: 'vertical',
+                                  overflow: 'hidden',
+                                }}
+                              >
+                                {item.summary}
+                              </p>
                             </div>
                             <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
                               <span>{item.author_name}</span>
                               <span className="text-border">•</span>
                               <span>{item.created_by}</span>
                             </div>
+                            <p className="text-xs text-muted-foreground/85">
+                              点击卡片查看原文
+                            </p>
                           </div>
 
-                          <div className="flex flex-wrap items-center gap-2 xl:w-[18rem] xl:justify-end">
+                          <div
+                            className="flex flex-wrap items-center gap-2 xl:w-[18rem] xl:justify-end"
+                            onClick={stopCardNavigation}
+                            onKeyDown={stopCardNavigation}
+                          >
                             <select
                               value={item.status}
                               onChange={(event) => handleStatusChange(item, event.target.value as NewsStatus)}
@@ -282,7 +431,12 @@ export function NewsAdminArticlesPage() {
                               <option value="featured">已入选</option>
                               <option value="ignored">已忽略</option>
                             </select>
-                            <Button variant="ghost" size="sm" className="text-destructive" onClick={() => handleDelete(item.id)}>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="text-destructive"
+                              onClick={() => handleDelete(item.id)}
+                            >
                               <Trash2 className="h-4 w-4" />
                               删除
                             </Button>

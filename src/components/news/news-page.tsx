@@ -45,8 +45,8 @@ function NewsImage({
 }) {
   if (!item.cover_image_url) {
     return (
-      <div className="flex h-full items-end rounded-[28px] border border-border/70 bg-[radial-gradient(circle_at_top_left,rgba(255,107,61,0.18),transparent_45%),linear-gradient(180deg,rgba(19,26,34,0.96),rgba(12,16,20,0.98))] p-5">
-        <Badge variant="outline" className="border-border/70 bg-background/70 text-muted-foreground">
+      <div className="flex h-full w-full items-end rounded-[18px] border border-border/50 bg-[radial-gradient(circle_at_top_left,rgba(255,107,61,0.08),transparent_45%),linear-gradient(180deg,rgba(19,26,34,0.92),rgba(12,16,20,0.96))] p-3.5">
+        <Badge variant="outline" className="border-border/60 bg-background/50 px-2 py-0 text-[10px] text-muted-foreground">
           {getPlatformLabel(item.source_platform)}
         </Badge>
       </div>
@@ -54,161 +54,73 @@ function NewsImage({
   }
 
   return (
-    <div
-      className="h-full rounded-[28px] border border-border/70 bg-cover bg-center"
-      style={{ backgroundImage: `linear-gradient(180deg, rgba(6,10,14,0.06), rgba(6,10,14,0.24)), url(${item.cover_image_url})` }}
-    />
+    <div className="relative h-full w-full overflow-hidden rounded-[18px] border border-border/50 bg-black/40">
+      {/* Blurred Background Layer */}
+      <div
+        className="absolute inset-0 scale-110 bg-cover bg-center opacity-40 blur-xl"
+        style={{ backgroundImage: `url(${item.cover_image_url})` }}
+      />
+      {/* Contained Image Layer */}
+      <div
+        className="relative h-full w-full bg-contain bg-center bg-no-repeat"
+        style={{ backgroundImage: `linear-gradient(180deg, rgba(6,10,14,0.02), rgba(6,10,14,0.12)), url(${item.cover_image_url})` }}
+      />
+    </div>
   );
 }
 
-function NewsHeroCard({
-  item,
-  accent,
-}: {
-  item: NewsItem;
-  accent: string;
-}) {
+function NewsDiscoverCard({ item }: { item: NewsItem }) {
+  const accent = item.source_platform === 'x'
+    ? 'border-transparent bg-sky-500/10 text-sky-400'
+    : 'border-transparent bg-amber-500/10 text-amber-500';
+
   return (
     <a
       href={item.source_url}
       target="_blank"
       rel="noopener noreferrer"
-      className="group block h-full"
+      className="group flex h-full flex-col rounded-[22px] border border-border/60 bg-card/40 p-2.5 transition-all duration-300 hover:-translate-y-1 hover:border-primary/30 hover:bg-card/60 hover:shadow-sm"
     >
-      <article className="rounded-[30px] border border-border/70 bg-card/72 p-3 transition-all duration-300 group-hover:-translate-y-1 group-hover:border-primary/35 group-hover:bg-card/88">
-        <div className="grid gap-4 lg:grid-cols-[minmax(0,1.08fr)_minmax(18rem,0.92fr)]">
-          <div className="flex min-w-0 flex-col justify-between rounded-[26px] bg-[#101722] px-6 py-6 sm:px-7 sm:py-7">
-            <div className="space-y-5">
-              <div className="flex items-center justify-between gap-3">
-                <Badge className={accent}>{getPlatformLabel(item.source_platform)}</Badge>
-                <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
-                  <Clock3 className="h-3.5 w-3.5" />
-                  {formatRelativeTime(item.published_at)}
-                </span>
-              </div>
-
-              <div className="space-y-4">
-                <h2 className="line-clamp-3 max-w-3xl text-[clamp(1.8rem,2.9vw,3.15rem)] font-semibold leading-[1.08] tracking-[-0.03em] text-foreground">
-                  {item.title}
-                </h2>
-                <p className="line-clamp-5 max-w-2xl text-[15px] leading-7 text-[#c7d0db]">
-                  {item.summary}
-                </p>
-              </div>
-            </div>
-
-            <div className="mt-8 flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
-              <span className="max-w-[18rem] truncate rounded-full bg-background/80 px-3 py-1.5 text-[12px] text-[#d7dde6]">
-                {item.author_name}
-              </span>
-              <span>{formatDateLabel(item.published_at)}</span>
-            </div>
+      <div className="relative aspect-video w-full shrink-0">
+        <NewsImage item={item} />
+        {item.cover_image_url && (
+          <div className="absolute right-2.5 top-2.5">
+            <Badge className={`px-1.5 py-0 text-[10px] shadow-sm backdrop-blur-md ${accent}`}>
+              {getPlatformLabel(item.source_platform)}
+            </Badge>
           </div>
+        )}
+      </div>
 
-          <div className="aspect-[16/11] min-h-[18rem]">
-            <NewsImage item={item} />
+      <div className="flex flex-1 flex-col px-1.5 pb-1 pt-3">
+        {!item.cover_image_url && (
+          <div className="mb-2 flex items-center justify-between">
+            <Badge className={`px-1.5 py-0 text-[10px] ${accent}`}>
+              {getPlatformLabel(item.source_platform)}
+            </Badge>
           </div>
-        </div>
-      </article>
-    </a>
-  );
-}
+        )}
 
-function NewsStoryCard({
-  item,
-  accent,
-}: {
-  item: NewsItem;
-  accent: string;
-}) {
-  return (
-    <a
-      href={item.source_url}
-      target="_blank"
-      rel="noopener noreferrer"
-      className="group block h-full"
-    >
-      <article className="overflow-hidden rounded-[26px] border border-border/70 bg-card/68 transition-all duration-300 group-hover:-translate-y-1 group-hover:border-primary/35 group-hover:bg-card/84">
-        <div className="aspect-[16/10] p-3">
-          <NewsImage item={item} />
-        </div>
+        <h3 className="line-clamp-2 text-[15px] font-semibold leading-[1.4] text-foreground transition-colors group-hover:text-primary">
+          {item.title}
+        </h3>
 
-        <div className="space-y-4 px-5 pb-5 pt-1">
-          <div className="flex items-center justify-between gap-3">
-            <Badge className={accent}>{getPlatformLabel(item.source_platform)}</Badge>
-            <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
-              <Clock3 className="h-3.5 w-3.5" />
+        <p className="mt-2 line-clamp-3 text-[13px] leading-relaxed text-muted-foreground/90">
+          {item.summary}
+        </p>
+
+        <div className="mt-auto flex items-center justify-between gap-3 pt-4 text-[11px] text-muted-foreground">
+          <div className="flex min-w-0 items-center gap-2">
+            <span className="truncate font-medium text-foreground/70">{item.author_name}</span>
+            <span className="text-border/60">•</span>
+            <span className="flex shrink-0 items-center gap-1">
+              <Clock3 className="h-3 w-3" />
               {formatRelativeTime(item.published_at)}
             </span>
           </div>
-
-          <div className="space-y-3">
-            <h3 className="line-clamp-3 text-[1.45rem] font-semibold leading-[1.18] tracking-[-0.02em] text-foreground transition-colors group-hover:text-primary">
-              {item.title}
-            </h3>
-            <p className="line-clamp-3 text-[14px] leading-6 text-muted-foreground">
-              {item.summary}
-            </p>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
-            <span className="max-w-[14rem] truncate">{item.author_name}</span>
-            <span className="text-border">•</span>
-            <span>{formatDateLabel(item.published_at)}</span>
-          </div>
+          <ArrowUpRight className="h-3.5 w-3.5 shrink-0 -translate-x-1 translate-y-1 text-primary opacity-0 transition-all group-hover:translate-x-0 group-hover:translate-y-0 group-hover:opacity-100" />
         </div>
-      </article>
-    </a>
-  );
-}
-
-function NewsListItem({ item }: { item: NewsItem }) {
-  return (
-    <a
-      href={item.source_url}
-      target="_blank"
-      rel="noopener noreferrer"
-      className="group block h-full rounded-[26px] border border-border/70 bg-card/66 p-3 transition-all duration-300 hover:-translate-y-1 hover:border-primary/35 hover:bg-card/82"
-    >
-      <article className="flex h-full flex-col">
-        <div className="aspect-[4/3]">
-          <NewsImage item={item} />
-        </div>
-
-        <div className="flex min-h-0 flex-1 flex-col justify-between px-2 pb-2 pt-4">
-          <div className="flex flex-wrap items-center gap-2">
-            <Badge variant="outline" className="border-border/70 bg-background/70 text-muted-foreground">
-              {getPlatformLabel(item.source_platform)}
-            </Badge>
-            <span className="text-xs text-muted-foreground">{formatDateLabel(item.published_at)}</span>
-          </div>
-
-          <div className="mt-3 space-y-3">
-            <h3 className="line-clamp-3 text-[1.55rem] font-semibold leading-[1.18] tracking-[-0.02em] text-foreground transition-colors group-hover:text-primary">
-              {item.title}
-            </h3>
-            <p className="line-clamp-3 text-[14px] leading-6 text-muted-foreground">
-              {item.summary}
-            </p>
-          </div>
-
-          <div className="mt-5 flex items-end justify-between gap-4">
-            <div className="flex min-w-0 flex-wrap items-center gap-2 text-sm text-muted-foreground">
-              <span className="max-w-[12rem] truncate">{item.author_name}</span>
-              {item.tags?.slice(0, 2).map((tag) => (
-                <span
-                  key={tag}
-                  className="rounded-full bg-background/90 px-2.5 py-1 text-[11px] text-muted-foreground"
-                >
-                  {tag}
-                </span>
-              ))}
-            </div>
-
-            <ArrowUpRight className="mb-0.5 h-4 w-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5 group-hover:text-primary" />
-          </div>
-        </div>
-      </article>
+      </div>
     </a>
   );
 }
@@ -246,12 +158,6 @@ export function NewsPage() {
       .sort((a, b) => +new Date(b.published_at) - +new Date(a.published_at));
   }, [items, platformFilter, rangeFilter]);
 
-  const topStories = (
-    featuredItems.some((item) => item.is_top_story)
-      ? featuredItems.filter((item) => item.is_top_story)
-      : featuredItems
-  ).slice(0, 3);
-  const listStories = featuredItems.filter((item) => !topStories.some((topStory) => topStory.id === item.id));
   const activeFilters = platformFilter !== 'all' || rangeFilter !== 'all';
 
   return (
@@ -262,7 +168,7 @@ export function NewsPage() {
       <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         {[
           { label: '已入选', value: featuredItems.length },
-          { label: 'Top Stories', value: topStories.length },
+          { label: 'Top Stories', value: featuredItems.filter((item) => item.is_top_story).length },
           { label: '自动来源', value: items.filter((item) => item.ingest_method === 'auto_tracked').length },
           { label: '来源平台', value: 'X + 公众号' },
         ].map((item) => (
@@ -342,37 +248,20 @@ export function NewsPage() {
               正在加载资讯...
             </CardContent>
           </Card>
-        ) : topStories.length === 0 ? (
+        ) : featuredItems.length === 0 ? (
           <Card className="border-dashed border-border/70 bg-card/40 py-0">
             <CardContent className="p-8 text-center text-muted-foreground">
               当前筛选条件下暂无已入选资讯。
             </CardContent>
           </Card>
         ) : (
-          <div className="grid gap-5 xl:grid-cols-[minmax(0,1.12fr)_minmax(21rem,0.88fr)]">
-            <NewsHeroCard item={topStories[0]} accent="border-transparent bg-primary/12 text-primary" />
-            <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-1">
-              {topStories.slice(1).map((item) => (
-                <NewsStoryCard
-                  key={item.id}
-                  item={item}
-                  accent={item.source_platform === 'x'
-                    ? 'border-transparent bg-sky-500/12 text-sky-300'
-                    : 'border-transparent bg-amber-500/12 text-amber-200'}
-                />
-              ))}
-            </div>
+          <div className="grid gap-4 sm:gap-5 grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            {featuredItems.map((item) => (
+              <NewsDiscoverCard key={item.id} item={item} />
+            ))}
           </div>
         )}
       </section>
-
-      {listStories.length > 0 ? (
-        <section className="mt-8 grid gap-5 md:grid-cols-2 2xl:grid-cols-3">
-          {listStories.map((item) => (
-            <NewsListItem key={item.id} item={item} />
-          ))}
-        </section>
-      ) : null}
     </WorkspaceShell>
   );
 }

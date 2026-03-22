@@ -156,7 +156,7 @@ export function PostCard({ post, priority = false }: PostCardProps) {
         <Card className="overflow-hidden h-full flex flex-col border border-border bg-card shadow-sm rounded-xl group transition-all hover:shadow-md">
             {/* Cover Image */}
             <CardContent
-                className={`p-0 relative aspect-[4/5] bg-muted ${canPlay ? 'cursor-pointer' : 'cursor-default'}`}
+                className={`p-0 relative aspect-video bg-muted ${canPlay ? 'cursor-pointer' : 'cursor-default'}`}
                 onClick={handlePlay}
             >
                 {isPlaying && playerMode === 'video' && playerSrc ? (
@@ -178,20 +178,31 @@ export function PostCard({ post, priority = false }: PostCardProps) {
                         referrerPolicy="strict-origin-when-cross-origin"
                     />
                 ) : (
-                    <Image
-                        src={coverImageSrc}
-                        alt={post.caption || `${platformLabel} Post`}
-                        fill
-                        sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
-                        priority={priority}
-                        className="object-cover transition-opacity group-hover:opacity-90"
-                        referrerPolicy="no-referrer"
-                        onError={() => {
-                            if (coverImageSrc !== proxiedImageUrl) {
-                                setCoverImageSrc(proxiedImageUrl);
-                            }
-                        }}
-                    />
+                    <>
+                        {/* Blurred Background Layer */}
+                        <Image
+                            src={coverImageSrc}
+                            alt=""
+                            fill
+                            className="object-cover opacity-40 blur-xl scale-110 pointer-events-none"
+                            referrerPolicy="no-referrer"
+                        />
+                        {/* Foreground Contained Image */}
+                        <Image
+                            src={coverImageSrc}
+                            alt={post.caption || `${platformLabel} Post`}
+                            fill
+                            sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
+                            priority={priority}
+                            className="object-contain transition-opacity group-hover:opacity-90 relative z-0"
+                            referrerPolicy="no-referrer"
+                            onError={() => {
+                                if (coverImageSrc !== proxiedImageUrl) {
+                                    setCoverImageSrc(proxiedImageUrl);
+                                }
+                            }}
+                        />
+                    </>
                 )}
 
                 {/* Video Play Overlay */}
@@ -218,65 +229,68 @@ export function PostCard({ post, priority = false }: PostCardProps) {
             </CardContent>
 
             {/* Footer Info */}
-            <div className="p-2 sm:p-4 flex flex-col gap-2 sm:gap-3">
-                {/* Stats Row */}
-                <div className="flex items-center justify-between border-b border-border pb-2 sm:pb-3">
-                    <div className="flex items-center gap-2 sm:gap-4 text-xs sm:text-sm">
-                        <div className="flex items-center gap-1 sm:gap-1.5 text-foreground font-medium">
-                            <Heart className="w-3 h-3 sm:w-4 sm:h-4 fill-red-500 text-red-500" />
-                            <span>{formatNumber(post.like_count)}</span>
-                        </div>
-                        <div className="flex items-center gap-1 sm:gap-1.5 text-muted-foreground">
-                            <MessageCircle className="w-3 h-3 sm:w-4 sm:h-4" />
-                            <span>{formatNumber(post.comment_count)}</span>
-                        </div>
-                        {(post.video_view_count || 0) > 0 && (
-                            <div className="flex items-center gap-1 sm:gap-1.5 text-muted-foreground">
-                                <Eye className="w-3 h-3 sm:w-4 sm:h-4" />
-                                <span>{formatNumber(post.video_view_count!)}</span>
-                            </div>
-                        )}
-                    </div>
-
-                    <a
-                        href={post.permalink}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-muted-foreground hover:text-primary transition-colors p-1 rounded-md hover:bg-muted"
-                        title="View Original Post"
-                    >
-                        <ExternalLink className="w-3 h-3 sm:w-4 sm:h-4" />
-                    </a>
-                </div>
-
-                {/* Author & Time */}
-                <div className="flex flex-col gap-1">
-                    <div className="flex justify-between items-center text-xs sm:text-sm">
+            <div className="p-3 sm:p-4 flex flex-col gap-2.5 flex-grow">
+                {/* Author, Time & Link (Top) */}
+                <div className="flex justify-between items-center text-xs">
+                    <div className="flex items-center gap-1.5 overflow-hidden">
                         <a
                             href={profileLink}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="text-primary hover:text-primary/80 font-bold font-mono transition-colors"
+                            className="text-foreground hover:text-primary font-medium truncate shrink"
                         >
                             @{post.profiles?.username}
                         </a>
-                        <span className="text-muted-foreground text-[10px] sm:text-xs flex items-center gap-1">
+                        <span className="text-muted-foreground/50 text-[10px] shrink-0">•</span>
+                        <span className="text-muted-foreground text-[11px] shrink-0">
                             {formatDate(post.posted_at)}
                         </span>
                     </div>
+                    <a
+                        href={post.permalink}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-muted-foreground hover:text-primary transition-colors shrink-0 ml-2"
+                        title="View Original Post"
+                    >
+                        <ExternalLink className="w-3.5 h-3.5" />
+                    </a>
+                </div>
 
-                    {post.caption && (
-                        <p className="text-xs text-muted-foreground line-clamp-2 mt-1 font-sans opacity-70">
-                            {post.caption}
-                        </p>
-                    )}
+                {/* Caption (Middle) */}
+                {post.caption && (
+                    <p className="text-[13px] leading-relaxed text-foreground/90 line-clamp-2 font-medium">
+                        {post.caption}
+                    </p>
+                )}
+
+                {/* Tags Buffer */}
+                <div className="flex-grow min-h-2 mt-0.5">
                     {previewTags.length > 0 && (
-                        <div className="flex flex-wrap gap-1 mt-2">
+                        <div className="flex flex-wrap gap-1.5">
                             {previewTags.map((tag) => (
-                                <Badge key={tag.id} variant="outline" className="text-[10px] px-1.5 py-0">
+                                <Badge key={tag.id} variant="secondary" className="text-[10px] px-1.5 py-0 bg-secondary/60 text-secondary-foreground/80 font-normal hover:bg-secondary/80">
                                     {tag.label}
                                 </Badge>
                             ))}
+                        </div>
+                    )}
+                </div>
+
+                {/* Stats Row (Bottom) */}
+                <div className="flex items-center gap-3.5 pt-2.5 mt-1 border-t border-border/40 text-[11px] font-medium text-muted-foreground">
+                    <div className="flex items-center gap-1 hover:text-foreground transition-colors">
+                        <Heart className="w-3.5 h-3.5" />
+                        <span>{formatNumber(post.like_count)}</span>
+                    </div>
+                    <div className="flex items-center gap-1 hover:text-foreground transition-colors">
+                        <MessageCircle className="w-3.5 h-3.5" />
+                        <span>{formatNumber(post.comment_count)}</span>
+                    </div>
+                    {(post.video_view_count || 0) > 0 && (
+                        <div className="flex items-center gap-1 hover:text-foreground transition-colors">
+                            <Eye className="w-3.5 h-3.5" />
+                            <span>{formatNumber(post.video_view_count!)}</span>
                         </div>
                     )}
                 </div>
