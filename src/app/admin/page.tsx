@@ -1,6 +1,5 @@
-
-import { NewsAdminPage } from '@/components/news/news-admin-page';
+import { redirect } from 'next/navigation';
 
 export default function AdminPage() {
-    return <NewsAdminPage />;
+    redirect('/admin/articles');
 }

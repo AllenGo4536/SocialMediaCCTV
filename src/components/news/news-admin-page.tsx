@@ -1,90 +1,29 @@
 "use client";
 
 import { useEffect, useMemo, useState } from 'react';
-import { Clock3, Loader2, Pencil, Plus, RadioTower, Save, Trash2 } from 'lucide-react';
+import { Clock3, Loader2, RadioTower, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
-import { WorkspaceShell } from '@/components/layout/workspace-shell';
-import { getPlatformLabel, trackedSourcesSeed } from '@/lib/mock-news-data';
+import { getPlatformLabel } from '@/lib/mock-news-data';
 import type { NewsItem, NewsSourcePlatform, NewsStatus } from '@/types';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { NewsAdminShell } from '@/components/news/news-admin-shell';
+import {
+  formatDateLabel,
+  REQUESTED_BY,
+  statusLabels,
+  statusTone,
+} from '@/components/news/news-admin-shared';
 
-interface FormState {
-  title: string;
-  summary: string;
-  source_url: string;
-  cover_image_url: string;
-  source_platform: NewsSourcePlatform;
-  author_name: string;
-  published_at: string;
-  status: NewsStatus;
-}
-
-const REQUESTED_BY = 'team@virax.local';
-
-const defaultFormState: FormState = {
-  title: '',
-  summary: '',
-  source_url: '',
-  cover_image_url: '',
-  source_platform: 'wechat',
-  author_name: '',
-  published_at: '2026-03-20T09:00',
-  status: 'pending',
-};
-
-const statusLabels: Record<NewsStatus, string> = {
-  pending: '待筛选',
-  featured: '已入选',
-  ignored: '已忽略',
-};
-
-const statusTone: Record<NewsStatus, string> = {
-  pending: 'border-transparent bg-amber-500/12 text-amber-200',
-  featured: 'border-transparent bg-emerald-500/12 text-emerald-300',
-  ignored: 'border-transparent bg-zinc-500/15 text-zinc-300',
-};
-
-function formatDateLabel(value: string) {
-  return new Intl.DateTimeFormat('zh-CN', {
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-  }).format(new Date(value));
-}
-
-function toInputDateTime(value: string) {
-  const date = new Date(value);
-  const pad = (part: number) => String(part).padStart(2, '0');
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
-}
-
-function buildFormState(item: NewsItem): FormState {
-  return {
-    title: item.title,
-    summary: item.summary,
-    source_url: item.source_url,
-    cover_image_url: item.cover_image_url || '',
-    source_platform: item.source_platform,
-    author_name: item.author_name,
-    published_at: toInputDateTime(item.published_at),
-    status: item.status,
-  };
-}
-
-export function NewsAdminPage() {
+export function NewsAdminArticlesPage() {
   const [items, setItems] = useState<NewsItem[]>([]);
   const [activeTab, setActiveTab] = useState<'all' | NewsStatus>('all');
   const [platformFilter, setPlatformFilter] = useState<NewsSourcePlatform | 'all'>('all');
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [formState, setFormState] = useState<FormState>(defaultFormState);
-  const [xSourceUrl, setXSourceUrl] = useState('');
+  const [sourceUrl, setSourceUrl] = useState('');
   const [isLoading, setIsLoading] = useState(true);
-  const [isSubmitting, setIsSubmitting] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
 
   const filteredItems = useMemo(() => {
@@ -126,48 +65,6 @@ export function NewsAdminPage() {
     void loadItems();
   }, []);
 
-  const resetForm = () => {
-    setFormState(defaultFormState);
-    setEditingId(null);
-  };
-
-  const handleEdit = (item: NewsItem) => {
-    setEditingId(item.id);
-    setFormState(buildFormState(item));
-  };
-
-  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    setIsSubmitting(true);
-
-    try {
-      const response = await fetch(editingId ? `/api/news/${editingId}` : '/api/news', {
-        method: editingId ? 'PATCH' : 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          ...formState,
-          requestedBy: REQUESTED_BY,
-          updatedBy: REQUESTED_BY,
-        }),
-      });
-      const payload = await response.json();
-
-      if (!response.ok) {
-        throw new Error(payload?.error || '保存资讯失败');
-      }
-
-      toast.success(editingId ? '资讯已更新' : '资讯已入库');
-      resetForm();
-      await loadItems();
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : '保存资讯失败');
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
   const handleDelete = async (id: string) => {
     try {
       const response = await fetch(`/api/news/${id}`, {
@@ -180,7 +77,6 @@ export function NewsAdminPage() {
       }
 
       toast.success('资讯已删除');
-      if (editingId === id) resetForm();
       await loadItems();
     } catch (error) {
       toast.error(error instanceof Error ? error.message : '删除资讯失败');
@@ -214,10 +110,10 @@ export function NewsAdminPage() {
     }
   };
 
-  const handleImportFromX = async () => {
-    const trimmedUrl = xSourceUrl.trim();
+  const handleImportFromUrl = async () => {
+    const trimmedUrl = sourceUrl.trim();
     if (!trimmedUrl) {
-      toast.error('先贴一个 X 链接。');
+      toast.error('先贴一个资讯链接。');
       return;
     }
 
@@ -232,7 +128,6 @@ export function NewsAdminPage() {
         body: JSON.stringify({
           mode: 'single_url',
           sourceUrl: trimmedUrl,
-          sourcePlatform: 'x',
           requestedBy: REQUESTED_BY,
           ingestMethod: 'manual',
         }),
@@ -240,36 +135,23 @@ export function NewsAdminPage() {
       const payload = await response.json();
 
       if (!response.ok) {
-        throw new Error(payload?.error || 'X 导入失败');
+        throw new Error(payload?.error || '资讯导入失败');
       }
 
-      const item = payload.newsItem as NewsItem;
-      setXSourceUrl('');
-      setEditingId(item.id);
-      setFormState(buildFormState(item));
-      toast.success(payload.deduped ? '已找到并刷新现有记录' : 'X 资讯已抓取并入库');
+      setSourceUrl('');
+      toast.success(payload.deduped ? '已找到并刷新现有记录' : '资讯已抓取并入库');
       await loadItems();
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'X 导入失败');
+      toast.error(error instanceof Error ? error.message : '资讯导入失败');
     } finally {
       setIsImporting(false);
     }
   };
 
   return (
-    <WorkspaceShell
-      title="录入后台"
-      description="支持手工录入，也支持直接粘贴 X 链接抓取入库。"
-      actions={
-        <Button
-          variant="outline"
-          className="border-primary/30 bg-primary/10 text-primary hover:bg-primary/12"
-          onClick={resetForm}
-        >
-          <Plus className="h-4 w-4" />
-          新建资讯
-        </Button>
-      }
+    <NewsAdminShell
+      sectionTitle="链接自动入库"
+      sectionDescription="用户只需要提供一个资讯链接。系统会自动判断来源平台，选择对应抓取方案，完成入库，然后在前端列表里呈现结果。"
     >
       <section className="grid gap-3 sm:grid-cols-3">
         {[
@@ -286,134 +168,32 @@ export function NewsAdminPage() {
 
       <section className="mt-6 grid gap-6 xl:grid-cols-[minmax(0,22rem)_minmax(0,1fr)]">
         <div className="space-y-6">
-          <Card className="border-border/70 bg-card/65 py-0">
-            <CardHeader className="px-6 pt-6">
-              <CardTitle>X 快速入库</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4 px-6 pb-6">
-              <div className="space-y-2">
-                <label className="text-sm text-muted-foreground">X 文章 / 长帖 / 推文链接</label>
-                <Input
-                  value={xSourceUrl}
-                  onChange={(event) => setXSourceUrl(event.target.value)}
-                  placeholder="https://x.com/.../status/... 或 /article/..."
-                />
-              </div>
-              <Button onClick={handleImportFromX} disabled={isImporting} className="w-full">
-                {isImporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <RadioTower className="h-4 w-4" />}
-                抓取并入库
-              </Button>
-              <p className="text-xs leading-5 text-muted-foreground">
-                当前第一阶段只接了 X 渠道。服务端会通过 Apify 的 Twitter Scraper 拉正文、作者、时间、封面图和互动数据。
-              </p>
-            </CardContent>
-          </Card>
-
           <Card className="border-border/70 bg-card/65 py-0 xl:sticky xl:top-24">
             <CardHeader className="px-6 pt-6">
-              <CardTitle>{editingId ? '编辑资讯' : '新增资讯'}</CardTitle>
+              <CardTitle>资讯链接入库</CardTitle>
             </CardHeader>
-            <CardContent className="px-6 pb-6">
-              <form className="space-y-4" onSubmit={handleSubmit}>
-                <div className="space-y-2">
-                  <label className="text-sm text-muted-foreground">标题</label>
-                  <Input
-                    value={formState.title}
-                    onChange={(event) => setFormState((current) => ({ ...current, title: event.target.value }))}
-                    placeholder="输入标题"
-                    required
-                  />
-                </div>
+            <CardContent className="space-y-4 px-6 pb-6">
+              <div className="rounded-2xl border border-primary/20 bg-primary/6 px-4 py-3 text-sm leading-6 text-muted-foreground">
+                这是当前唯一保留给用户的录入入口。贴入链接后，系统会先识别来源，再调用对应抓取方案完成入库。
+              </div>
 
-                <div className="space-y-2">
-                  <label className="text-sm text-muted-foreground">摘要</label>
-                  <textarea
-                    value={formState.summary}
-                    onChange={(event) => setFormState((current) => ({ ...current, summary: event.target.value }))}
-                    placeholder="输入摘要"
-                    required
-                    className="min-h-28 w-full rounded-xl border border-border bg-background px-3 py-3 text-sm outline-none transition focus:border-primary"
-                  />
-                </div>
+              <div className="space-y-2">
+                <label className="text-sm text-muted-foreground">资讯链接</label>
+                <Input
+                  value={sourceUrl}
+                  onChange={(event) => setSourceUrl(event.target.value)}
+                  placeholder="https://x.com/.../status/... 或 https://mp.weixin.qq.com/..."
+                />
+              </div>
 
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <div className="space-y-2">
-                    <label className="text-sm text-muted-foreground">来源平台</label>
-                    <select
-                      value={formState.source_platform}
-                      onChange={(event) => setFormState((current) => ({ ...current, source_platform: event.target.value as NewsSourcePlatform }))}
-                      className="h-10 w-full rounded-xl border border-border bg-background px-3 text-sm outline-none transition focus:border-primary"
-                    >
-                      <option value="wechat">微信公众号</option>
-                      <option value="x">X / Twitter</option>
-                    </select>
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-sm text-muted-foreground">状态</label>
-                    <select
-                      value={formState.status}
-                      onChange={(event) => setFormState((current) => ({ ...current, status: event.target.value as NewsStatus }))}
-                      className="h-10 w-full rounded-xl border border-border bg-background px-3 text-sm outline-none transition focus:border-primary"
-                    >
-                      <option value="pending">待筛选</option>
-                      <option value="featured">已入选</option>
-                      <option value="ignored">已忽略</option>
-                    </select>
-                  </div>
-                </div>
+              <Button onClick={handleImportFromUrl} disabled={isImporting} className="w-full">
+                {isImporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <RadioTower className="h-4 w-4" />}
+                识别来源并入库
+              </Button>
 
-                <div className="space-y-2">
-                  <label className="text-sm text-muted-foreground">原文链接</label>
-                  <Input
-                    value={formState.source_url}
-                    onChange={(event) => setFormState((current) => ({ ...current, source_url: event.target.value }))}
-                    placeholder="https://..."
-                    required
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <label className="text-sm text-muted-foreground">封面图链接</label>
-                  <Input
-                    value={formState.cover_image_url}
-                    onChange={(event) => setFormState((current) => ({ ...current, cover_image_url: event.target.value }))}
-                    placeholder="可选"
-                  />
-                </div>
-
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <div className="space-y-2">
-                    <label className="text-sm text-muted-foreground">作者名</label>
-                    <Input
-                      value={formState.author_name}
-                      onChange={(event) => setFormState((current) => ({ ...current, author_name: event.target.value }))}
-                      placeholder="作者 / 账号名"
-                      required
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-sm text-muted-foreground">发布时间</label>
-                    <Input
-                      type="datetime-local"
-                      value={formState.published_at}
-                      onChange={(event) => setFormState((current) => ({ ...current, published_at: event.target.value }))}
-                      required
-                    />
-                  </div>
-                </div>
-
-                <div className="flex flex-wrap items-center gap-3 pt-2">
-                  <Button type="submit" disabled={isSubmitting}>
-                    {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : editingId ? <Save className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
-                    {editingId ? '保存修改' : '录入资讯'}
-                  </Button>
-                  {editingId ? (
-                    <Button type="button" variant="ghost" onClick={resetForm}>
-                      取消编辑
-                    </Button>
-                  ) : null}
-                </div>
-              </form>
+              <p className="text-xs leading-5 text-muted-foreground">
+                当前会自动识别链接来源。已实现的抓取链路会直接入库；未实现的平台会给出明确错误提示。
+              </p>
             </CardContent>
           </Card>
         </div>
@@ -513,10 +293,6 @@ export function NewsAdminPage() {
                               <option value="featured">已入选</option>
                               <option value="ignored">已忽略</option>
                             </select>
-                            <Button variant="ghost" size="sm" onClick={() => handleEdit(item)}>
-                              <Pencil className="h-4 w-4" />
-                              编辑
-                            </Button>
                             <Button variant="ghost" size="sm" className="text-destructive" onClick={() => handleDelete(item.id)}>
                               <Trash2 className="h-4 w-4" />
                               删除
@@ -535,40 +311,19 @@ export function NewsAdminPage() {
             <CardHeader className="px-6 pt-6">
               <CardTitle className="flex items-center gap-2">
                 <RadioTower className="h-5 w-5 text-primary" />
-                X 定向来源
+                已入库文章
               </CardTitle>
             </CardHeader>
             <CardContent className="px-6 pb-6">
-              <div className="space-y-3">
-                {trackedSourcesSeed.map((source) => (
-                  <div
-                    key={source.id}
-                    className="rounded-2xl border border-border/70 bg-background/70 p-4"
-                  >
-                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <p className="font-medium text-foreground">{source.display_name}</p>
-                          <Badge className={source.status === 'active'
-                            ? 'border-transparent bg-emerald-500/12 text-emerald-300'
-                            : 'border-transparent bg-zinc-500/15 text-zinc-300'}>
-                            {source.status === 'active' ? '跟踪中' : '暂停'}
-                          </Badge>
-                        </div>
-                        <p className="mt-1 text-sm text-muted-foreground">{source.handle}</p>
-                      </div>
-                      <p className="text-xs text-muted-foreground">最近检查：{formatDateLabel(source.last_checked_at)}</p>
-                    </div>
-                    <p className="mt-3 text-sm leading-6 text-muted-foreground">
-                      最新动态：{source.latest_headline}
-                    </p>
-                  </div>
-                ))}
-              </div>
+              <p className="text-sm leading-6 text-muted-foreground">
+                这里集中展示自动识别并入库后的文章，以及当前标注状态。整个录入链路已经收敛为“贴链接 - 自动识别 - 自动抓取 - 列表呈现”。
+              </p>
             </CardContent>
           </Card>
         </div>
       </section>
-    </WorkspaceShell>
+    </NewsAdminShell>
   );
 }
+
+export { NewsAdminArticlesPage as NewsAdminPage };
