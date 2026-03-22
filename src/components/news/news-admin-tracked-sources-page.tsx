@@ -1,9 +1,8 @@
 "use client";
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Loader2, RadioTower, UserPlus } from 'lucide-react';
 import { toast } from 'sonner';
-import { trackedSourcesSeed } from '@/lib/mock-news-data';
 import type { TrackedSource } from '@/types';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -13,8 +12,9 @@ import { NewsAdminShell } from '@/components/news/news-admin-shell';
 import { formatDateLabel, normalizeXHandle, REQUESTED_BY } from '@/components/news/news-admin-shared';
 
 export function NewsAdminTrackedSourcesPage() {
-  const [trackedSources, setTrackedSources] = useState<TrackedSource[]>(trackedSourcesSeed);
+  const [trackedSources, setTrackedSources] = useState<TrackedSource[]>([]);
   const [trackedAuthorUrl, setTrackedAuthorUrl] = useState('');
+  const [isLoading, setIsLoading] = useState(true);
   const [isTrackingAuthor, setIsTrackingAuthor] = useState(false);
 
   const counts = useMemo(() => {
@@ -24,6 +24,28 @@ export function NewsAdminTrackedSourcesPage() {
       paused: trackedSources.filter((source) => source.status === 'paused').length,
     };
   }, [trackedSources]);
+
+  const loadTrackedSources = async () => {
+    setIsLoading(true);
+    try {
+      const response = await fetch('/api/tracked-sources', { cache: 'no-store' });
+      const payload = await response.json();
+
+      if (!response.ok) {
+        throw new Error(payload?.error || '读取监控列表失败');
+      }
+
+      setTrackedSources(payload.items || []);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : '读取监控列表失败');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    void loadTrackedSources();
+  }, []);
 
   const handleTrackAuthor = async () => {
     const trimmedUrl = trackedAuthorUrl.trim();
@@ -37,20 +59,14 @@ export function NewsAdminTrackedSourcesPage() {
     setIsTrackingAuthor(true);
 
     try {
-      const response = await fetch('/api/ingest', {
+      const response = await fetch('/api/tracked-sources', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          mode: 'author_tracking',
-          authorHandle: normalizedHandle,
-          authorUrl: trimmedUrl || undefined,
-          sourcePlatform: 'x',
+          authorUrl: trimmedUrl,
           requestedBy: REQUESTED_BY,
-          ingestMethod: 'auto_tracked',
-          sort: 'Latest',
-          maxItems: 10,
         }),
       });
       const payload = await response.json();
@@ -59,23 +75,9 @@ export function NewsAdminTrackedSourcesPage() {
         throw new Error(payload?.error || 'X 博主添加失败');
       }
 
-      const latestItem = payload.items?.[0];
-      const nextSource: TrackedSource = {
-        id: `source-${normalizedHandle || Date.now()}`,
-        platform: 'x',
-        handle: `@${normalizedHandle || 'unknown'}`,
-        display_name: latestItem?.sourceRecord?.author_name || `@${normalizedHandle}`,
-        status: 'active',
-        last_checked_at: new Date().toISOString(),
-        latest_headline: latestItem?.newsItem?.title || '已创建跟踪来源，等待下一次抓取。',
-      };
-
-      setTrackedSources((current) => {
-        const withoutSameHandle = current.filter((item) => item.handle.toLowerCase() !== nextSource.handle.toLowerCase());
-        return [nextSource, ...withoutSameHandle];
-      });
       setTrackedAuthorUrl('');
-      toast.success(`已添加 ${nextSource.handle}，本次抓取 ${payload.totalPersisted || 0} 条资讯。`);
+      toast.success(`已添加 @${normalizedHandle}，本次抓取 ${payload.totalPersisted || 0} 条资讯。`);
+      await loadTrackedSources();
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'X 博主添加失败');
     } finally {
@@ -144,32 +146,43 @@ export function NewsAdminTrackedSourcesPage() {
             </CardTitle>
           </CardHeader>
           <CardContent className="px-6 pb-6">
-            <div className="space-y-3">
-              {trackedSources.map((source) => (
-                <div
-                  key={source.id}
-                  className="rounded-2xl border border-border/70 bg-background/70 p-4"
-                >
-                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <p className="font-medium text-foreground">{source.display_name}</p>
-                        <Badge className={source.status === 'active'
-                          ? 'border-transparent bg-emerald-500/12 text-emerald-300'
-                          : 'border-transparent bg-zinc-500/15 text-zinc-300'}>
-                          {source.status === 'active' ? '跟踪中' : '暂停'}
-                        </Badge>
+            {isLoading ? (
+              <div className="flex items-center justify-center rounded-[20px] border border-border/70 bg-background/65 px-5 py-10 text-sm text-muted-foreground">
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                正在加载监控列表...
+              </div>
+            ) : trackedSources.length === 0 ? (
+              <div className="rounded-[20px] border border-dashed border-border/70 bg-background/50 px-5 py-10 text-center text-sm text-muted-foreground">
+                当前还没有已关注博主。
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {trackedSources.map((source) => (
+                  <div
+                    key={source.id}
+                    className="rounded-2xl border border-border/70 bg-background/70 p-4"
+                  >
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <p className="font-medium text-foreground">{source.display_name}</p>
+                          <Badge className={source.status === 'active'
+                            ? 'border-transparent bg-emerald-500/12 text-emerald-300'
+                            : 'border-transparent bg-zinc-500/15 text-zinc-300'}>
+                            {source.status === 'active' ? '跟踪中' : '暂停'}
+                          </Badge>
+                        </div>
+                        <p className="mt-1 text-sm text-muted-foreground">{source.handle}</p>
                       </div>
-                      <p className="mt-1 text-sm text-muted-foreground">{source.handle}</p>
+                      <p className="text-xs text-muted-foreground">最近检查：{formatDateLabel(source.last_checked_at)}</p>
                     </div>
-                    <p className="text-xs text-muted-foreground">最近检查：{formatDateLabel(source.last_checked_at)}</p>
+                    <p className="mt-3 text-sm leading-6 text-muted-foreground">
+                      最新动态：{source.latest_headline}
+                    </p>
                   </div>
-                  <p className="mt-3 text-sm leading-6 text-muted-foreground">
-                    最新动态：{source.latest_headline}
-                  </p>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
           </CardContent>
         </Card>
       </section>

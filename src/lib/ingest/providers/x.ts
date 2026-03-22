@@ -38,6 +38,7 @@ interface ApifyTwitterItem {
   url?: string;
   twitterUrl?: string;
   text?: string;
+  fullText?: string;
   retweetCount?: number;
   replyCount?: number;
   likeCount?: number;
@@ -46,6 +47,13 @@ interface ApifyTwitterItem {
   viewCount?: number;
   createdAt?: string;
   lang?: string;
+  isReply?: boolean;
+  isRetweet?: boolean;
+  isQuote?: boolean;
+  inReplyToId?: string;
+  inReplyToUsername?: string;
+  quoteId?: string;
+  conversationId?: string;
   author?: ApifyTwitterAuthor;
   photos?: ApifyTwitterMediaObject[] | string[];
   videos?: ApifyTwitterMediaObject[] | string[];
@@ -181,6 +189,30 @@ function buildApifyInput(input: IngestRequest): ApifyTwitterInput {
   return buildKeywordMonitoringInput(input as KeywordMonitoringIngestRequest);
 }
 
+function isReplyLikeItem(item: ApifyTwitterItem) {
+  return Boolean(
+    item.isReply
+    || item.inReplyToId
+    || item.inReplyToUsername
+  );
+}
+
+function shouldKeepItem(item: ApifyTwitterItem, input: IngestRequest) {
+  if (input.mode === undefined || input.mode === 'single_url') {
+    return true;
+  }
+
+  if (item.isRetweet) {
+    return false;
+  }
+
+  if (isReplyLikeItem(item)) {
+    return false;
+  }
+
+  return true;
+}
+
 function objectMediaUrls(items: Array<ApifyTwitterMediaObject | string> | undefined, fallbackType: string) {
   return (items || [])
     .map((item) => {
@@ -288,8 +320,13 @@ export async function fetchXSources(input: IngestRequest): Promise<FetchResult[]
       return [];
     }
 
+    const filteredItems = rawItems.filter((item) => shouldKeepItem(item, input));
+    if (filteredItems.length === 0) {
+      throw new Error('当前抓到的内容全部是回复帖或转推，已按规则过滤。');
+    }
+
     const fallbackUrl = 'sourceUrl' in input ? input.sourceUrl : undefined;
-    return rawItems.map((item) => mapApifyItemToFetchResult(item, fallbackUrl));
+    return filteredItems.map((item) => mapApifyItemToFetchResult(item, fallbackUrl));
   } catch (error) {
     throw new Error(toFriendlyErrorMessage(error));
   }

@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { WorkspaceShell } from '@/components/layout/workspace-shell';
-import { getPlatformLabel, isWithinDays, newsItemsSeed } from '@/lib/mock-news-data';
+import { getPlatformLabel, isWithinDays } from '@/lib/mock-news-data';
 import type { NewsItem, NewsSourcePlatform } from '@/types';
 
 type RangeFilter = 'all' | '7' | '30';
@@ -59,14 +59,14 @@ function NewsHeroCard({
           <div className="absolute inset-0">
             <div
               aria-hidden="true"
-              className="h-full w-full bg-cover bg-center opacity-30 transition duration-500 group-hover:scale-[1.03]"
+              className="h-full w-full bg-cover bg-center opacity-35 transition duration-500 group-hover:scale-[1.03]"
               style={{ backgroundImage: `url(${item.cover_image_url})` }}
             />
-            <div className="absolute inset-0 bg-gradient-to-t from-[#0c1117] via-[#0c1117]/80 to-[#0c1117]/20" />
+            <div className="absolute inset-0 bg-gradient-to-t from-[#081018] via-[#0b1118]/92 via-45% to-[#0b1118]/38" />
           </div>
         ) : null}
 
-        <div className={`relative flex h-full flex-col justify-between p-5 ${large ? 'min-h-[23rem]' : 'min-h-[11.25rem]'}`}>
+        <div className={`relative flex h-full flex-col justify-between ${large ? 'min-h-[26rem] p-6' : 'min-h-[15rem] p-5'}`}>
           <div className="flex items-center justify-between gap-3">
             <Badge className={accent}>{getPlatformLabel(item.source_platform)}</Badge>
             <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
@@ -75,15 +75,17 @@ function NewsHeroCard({
             </span>
           </div>
 
-          <div className="space-y-3">
-            <h2 className={`max-w-2xl font-semibold tracking-tight text-balance text-foreground ${large ? 'text-[28px] leading-tight' : 'text-lg leading-snug'}`}>
+          <div className={`space-y-3 ${large ? 'max-w-3xl' : 'max-w-xl'}`}>
+            <h2 className={`font-semibold tracking-tight text-foreground ${large ? 'line-clamp-3 text-[clamp(1.85rem,3vw,2.8rem)] leading-[1.12]' : 'line-clamp-2 text-[1.35rem] leading-[1.2]'}`}>
               {item.title}
             </h2>
-            <p className="max-w-2xl text-sm leading-6 text-muted-foreground">
+            <p className={`${large ? 'line-clamp-4 text-[15px] leading-7 text-[#d6dde7]' : 'line-clamp-3 text-sm leading-6 text-muted-foreground'}`}>
               {item.summary}
             </p>
-            <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
-              <span>{item.author_name}</span>
+            <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+              <span className="max-w-[18rem] truncate rounded-full bg-black/20 px-2.5 py-1 text-[12px] text-[#d3d9e2]">
+                {item.author_name}
+              </span>
               <span className="text-border">•</span>
               <span>{formatDateLabel(item.published_at)}</span>
             </div>
@@ -111,15 +113,15 @@ function NewsListItem({ item }: { item: NewsItem }) {
             <span className="text-xs text-muted-foreground">{formatDateLabel(item.published_at)}</span>
           </div>
           <div className="space-y-2">
-            <h3 className="text-lg font-medium leading-7 text-foreground transition-colors group-hover:text-primary">
+            <h3 className="line-clamp-2 text-lg font-medium leading-7 text-foreground transition-colors group-hover:text-primary">
               {item.title}
             </h3>
-            <p className="max-w-3xl text-sm leading-6 text-muted-foreground">
+            <p className="line-clamp-3 max-w-3xl text-sm leading-6 text-muted-foreground">
               {item.summary}
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
-            <span>{item.author_name}</span>
+            <span className="max-w-[14rem] truncate">{item.author_name}</span>
             {item.tags?.map((tag) => (
               <span
                 key={tag}
@@ -140,7 +142,7 @@ function NewsListItem({ item }: { item: NewsItem }) {
 export function NewsPage() {
   const [platformFilter, setPlatformFilter] = useState<NewsSourcePlatform | 'all'>('all');
   const [rangeFilter, setRangeFilter] = useState<RangeFilter>('all');
-  const [items, setItems] = useState<NewsItem[]>(newsItemsSeed.filter((item) => item.status === 'featured'));
+  const [items, setItems] = useState<NewsItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {

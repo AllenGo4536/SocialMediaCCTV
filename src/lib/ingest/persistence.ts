@@ -7,7 +7,9 @@ import type {
   NewsItemRow,
   SourcePlatform,
   SourceRecordRow,
+  TrackedSourceRow,
 } from '@/lib/ingest/types';
+import type { TrackedSource } from '@/types';
 
 function toNewsItem(row: NewsItemRow): NewsItem {
   return {
@@ -264,6 +266,61 @@ export async function createManualNewsItem(input: {
 
   if (error) throw error;
   return toNewsItem(data as NewsItemRow);
+}
+
+function toTrackedSource(row: TrackedSourceRow): TrackedSource {
+  return {
+    id: row.id,
+    platform: row.platform,
+    handle: row.handle,
+    display_name: row.display_name,
+    status: row.status,
+    last_checked_at: row.last_checked_at,
+    latest_headline: row.latest_headline || '等待下一次抓取。',
+  };
+}
+
+export async function listTrackedSources() {
+  const { data, error } = await supabaseAdmin
+    .from('tracked_sources')
+    .select('*')
+    .order('updated_at', { ascending: false });
+
+  if (error) throw error;
+  return ((data || []) as TrackedSourceRow[]).map(toTrackedSource);
+}
+
+export async function upsertTrackedSource(input: {
+  handle: string;
+  authorUrl: string;
+  displayName: string;
+  latestHeadline?: string | null;
+  latestSourceRecordId?: string | null;
+  createdBy: string;
+}) {
+  const normalizedHandle = input.handle.trim().replace(/^@/, '').toLowerCase();
+
+  const payload = {
+    platform: 'x',
+    handle: `@${normalizedHandle}`,
+    author_url: input.authorUrl,
+    display_name: input.displayName,
+    status: 'active',
+    last_checked_at: new Date().toISOString(),
+    latest_headline: input.latestHeadline ?? null,
+    latest_source_record_id: input.latestSourceRecordId ?? null,
+    created_by: input.createdBy,
+    updated_at: new Date().toISOString(),
+  };
+
+  const { data, error } = await supabaseAdmin
+    .from('tracked_sources')
+    .upsert(payload, { onConflict: 'handle' })
+    .select('*')
+    .single();
+
+  if (error) throw error;
+  return toTrackedSource(data as TrackedSourceRow);
 }
 
 export async function updateNewsItemRecord(id: string, input: {

@@ -110,6 +110,21 @@ export interface IngestJobRow {
   updated_at: string;
 }
 
+export interface TrackedSourceRow {
+  id: string;
+  platform: 'x';
+  handle: string;
+  author_url: string;
+  display_name: string;
+  status: 'active' | 'paused';
+  last_checked_at: string;
+  latest_headline: string | null;
+  latest_source_record_id: string | null;
+  created_by: string;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface SingleIngestResult {
   mode: 'single_url';
   job: IngestJobRow;

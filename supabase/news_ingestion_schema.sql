@@ -64,6 +64,24 @@ create table if not exists public.news_items (
   constraint news_items_source_record_id_key unique (source_record_id)
 );
 
+create table if not exists public.tracked_sources (
+  id uuid primary key default gen_random_uuid(),
+  platform text not null default 'x',
+  handle text not null,
+  author_url text not null,
+  display_name text not null,
+  status text not null default 'active',
+  last_checked_at timestamptz not null default now(),
+  latest_headline text null,
+  latest_source_record_id uuid null,
+  created_by text not null,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  constraint tracked_sources_platform_check check (platform in ('x')),
+  constraint tracked_sources_status_check check (status in ('active', 'paused')),
+  constraint tracked_sources_handle_key unique (handle)
+);
+
 do $$
 begin
   if not exists (
@@ -74,6 +92,20 @@ begin
     alter table public.ingest_jobs
       add constraint ingest_jobs_source_record_id_fkey
       foreign key (source_record_id) references public.source_records(id) on delete set null;
+  end if;
+end
+$$;
+
+do $$
+begin
+  if not exists (
+    select 1
+    from pg_constraint
+    where conname = 'tracked_sources_latest_source_record_id_fkey'
+  ) then
+    alter table public.tracked_sources
+      add constraint tracked_sources_latest_source_record_id_fkey
+      foreign key (latest_source_record_id) references public.source_records(id) on delete set null;
   end if;
 end
 $$;
@@ -99,3 +131,5 @@ create index if not exists idx_source_records_published_at on public.source_reco
 create index if not exists idx_news_items_status on public.news_items (status);
 create index if not exists idx_news_items_platform on public.news_items (source_platform);
 create index if not exists idx_news_items_published_at on public.news_items (published_at desc);
+create index if not exists idx_tracked_sources_status on public.tracked_sources (status);
+create index if not exists idx_tracked_sources_created_at on public.tracked_sources (created_at desc);
