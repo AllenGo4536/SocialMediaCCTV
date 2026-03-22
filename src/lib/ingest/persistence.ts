@@ -290,6 +290,17 @@ export async function listTrackedSources() {
   return ((data || []) as TrackedSourceRow[]).map(toTrackedSource);
 }
 
+export async function listActiveTrackedSources() {
+  const { data, error } = await supabaseAdmin
+    .from('tracked_sources')
+    .select('*')
+    .eq('status', 'active')
+    .order('updated_at', { ascending: false });
+
+  if (error) throw error;
+  return (data || []) as TrackedSourceRow[];
+}
+
 export async function upsertTrackedSource(input: {
   handle: string;
   authorUrl: string;
@@ -316,6 +327,44 @@ export async function upsertTrackedSource(input: {
   const { data, error } = await supabaseAdmin
     .from('tracked_sources')
     .upsert(payload, { onConflict: 'handle' })
+    .select('*')
+    .single();
+
+  if (error) throw error;
+  return toTrackedSource(data as TrackedSourceRow);
+}
+
+export async function markTrackedSourceChecked(input: {
+  id: string;
+  latestHeadline?: string | null;
+  latestSourceRecordId?: string | null;
+  displayName?: string;
+}) {
+  const payload: {
+    last_checked_at: string;
+    updated_at: string;
+    latest_headline?: string | null;
+    latest_source_record_id?: string | null;
+    display_name?: string;
+  } = {
+    last_checked_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  };
+
+  if (input.latestHeadline !== undefined) {
+    payload.latest_headline = input.latestHeadline;
+  }
+  if (input.latestSourceRecordId !== undefined) {
+    payload.latest_source_record_id = input.latestSourceRecordId;
+  }
+  if (input.displayName !== undefined) {
+    payload.display_name = input.displayName;
+  }
+
+  const { data, error } = await supabaseAdmin
+    .from('tracked_sources')
+    .update(payload)
+    .eq('id', input.id)
     .select('*')
     .single();
 
