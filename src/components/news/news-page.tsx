@@ -38,14 +38,35 @@ function formatRelativeTime(value: string) {
   return `${days} 天前`;
 }
 
+function NewsImage({
+  item,
+}: {
+  item: NewsItem;
+}) {
+  if (!item.cover_image_url) {
+    return (
+      <div className="flex h-full items-end rounded-[28px] border border-border/70 bg-[radial-gradient(circle_at_top_left,rgba(255,107,61,0.18),transparent_45%),linear-gradient(180deg,rgba(19,26,34,0.96),rgba(12,16,20,0.98))] p-5">
+        <Badge variant="outline" className="border-border/70 bg-background/70 text-muted-foreground">
+          {getPlatformLabel(item.source_platform)}
+        </Badge>
+      </div>
+    );
+  }
+
+  return (
+    <div
+      className="h-full rounded-[28px] border border-border/70 bg-cover bg-center"
+      style={{ backgroundImage: `linear-gradient(180deg, rgba(6,10,14,0.06), rgba(6,10,14,0.24)), url(${item.cover_image_url})` }}
+    />
+  );
+}
+
 function NewsHeroCard({
   item,
   accent,
-  large = false,
 }: {
   item: NewsItem;
   accent: string;
-  large?: boolean;
 }) {
   return (
     <a
@@ -54,19 +75,65 @@ function NewsHeroCard({
       rel="noopener noreferrer"
       className="group block h-full"
     >
-      <article className="relative h-full overflow-hidden rounded-[24px] border border-border/70 bg-card/85 transition-transform duration-300 group-hover:-translate-y-1">
-        {item.cover_image_url ? (
-          <div className="absolute inset-0">
-            <div
-              aria-hidden="true"
-              className="h-full w-full bg-cover bg-center opacity-35 transition duration-500 group-hover:scale-[1.03]"
-              style={{ backgroundImage: `url(${item.cover_image_url})` }}
-            />
-            <div className="absolute inset-0 bg-gradient-to-t from-[#081018] via-[#0b1118]/92 via-45% to-[#0b1118]/38" />
-          </div>
-        ) : null}
+      <article className="rounded-[30px] border border-border/70 bg-card/72 p-3 transition-all duration-300 group-hover:-translate-y-1 group-hover:border-primary/35 group-hover:bg-card/88">
+        <div className="grid gap-4 lg:grid-cols-[minmax(0,1.08fr)_minmax(18rem,0.92fr)]">
+          <div className="flex min-w-0 flex-col justify-between rounded-[26px] bg-[#101722] px-6 py-6 sm:px-7 sm:py-7">
+            <div className="space-y-5">
+              <div className="flex items-center justify-between gap-3">
+                <Badge className={accent}>{getPlatformLabel(item.source_platform)}</Badge>
+                <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+                  <Clock3 className="h-3.5 w-3.5" />
+                  {formatRelativeTime(item.published_at)}
+                </span>
+              </div>
 
-        <div className={`relative flex h-full flex-col justify-between ${large ? 'min-h-[26rem] p-6' : 'min-h-[15rem] p-5'}`}>
+              <div className="space-y-4">
+                <h2 className="line-clamp-3 max-w-3xl text-[clamp(1.8rem,2.9vw,3.15rem)] font-semibold leading-[1.08] tracking-[-0.03em] text-foreground">
+                  {item.title}
+                </h2>
+                <p className="line-clamp-5 max-w-2xl text-[15px] leading-7 text-[#c7d0db]">
+                  {item.summary}
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-8 flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
+              <span className="max-w-[18rem] truncate rounded-full bg-background/80 px-3 py-1.5 text-[12px] text-[#d7dde6]">
+                {item.author_name}
+              </span>
+              <span>{formatDateLabel(item.published_at)}</span>
+            </div>
+          </div>
+
+          <div className="aspect-[16/11] min-h-[18rem]">
+            <NewsImage item={item} />
+          </div>
+        </div>
+      </article>
+    </a>
+  );
+}
+
+function NewsStoryCard({
+  item,
+  accent,
+}: {
+  item: NewsItem;
+  accent: string;
+}) {
+  return (
+    <a
+      href={item.source_url}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="group block h-full"
+    >
+      <article className="overflow-hidden rounded-[26px] border border-border/70 bg-card/68 transition-all duration-300 group-hover:-translate-y-1 group-hover:border-primary/35 group-hover:bg-card/84">
+        <div className="aspect-[16/10] p-3">
+          <NewsImage item={item} />
+        </div>
+
+        <div className="space-y-4 px-5 pb-5 pt-1">
           <div className="flex items-center justify-between gap-3">
             <Badge className={accent}>{getPlatformLabel(item.source_platform)}</Badge>
             <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
@@ -75,20 +142,19 @@ function NewsHeroCard({
             </span>
           </div>
 
-          <div className={`space-y-3 ${large ? 'max-w-3xl' : 'max-w-xl'}`}>
-            <h2 className={`font-semibold tracking-tight text-foreground ${large ? 'line-clamp-3 text-[clamp(1.85rem,3vw,2.8rem)] leading-[1.12]' : 'line-clamp-2 text-[1.35rem] leading-[1.2]'}`}>
+          <div className="space-y-3">
+            <h3 className="line-clamp-3 text-[1.45rem] font-semibold leading-[1.18] tracking-[-0.02em] text-foreground transition-colors group-hover:text-primary">
               {item.title}
-            </h2>
-            <p className={`${large ? 'line-clamp-4 text-[15px] leading-7 text-[#d6dde7]' : 'line-clamp-3 text-sm leading-6 text-muted-foreground'}`}>
+            </h3>
+            <p className="line-clamp-3 text-[14px] leading-6 text-muted-foreground">
               {item.summary}
             </p>
-            <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
-              <span className="max-w-[18rem] truncate rounded-full bg-black/20 px-2.5 py-1 text-[12px] text-[#d3d9e2]">
-                {item.author_name}
-              </span>
-              <span className="text-border">•</span>
-              <span>{formatDateLabel(item.published_at)}</span>
-            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+            <span className="max-w-[14rem] truncate">{item.author_name}</span>
+            <span className="text-border">•</span>
+            <span>{formatDateLabel(item.published_at)}</span>
           </div>
         </div>
       </article>
@@ -102,39 +168,47 @@ function NewsListItem({ item }: { item: NewsItem }) {
       href={item.source_url}
       target="_blank"
       rel="noopener noreferrer"
-      className="group block rounded-[20px] border border-border/70 bg-card/60 p-5 transition-all hover:border-primary/40 hover:bg-card/85"
+      className="group block h-full rounded-[26px] border border-border/70 bg-card/66 p-3 transition-all duration-300 hover:-translate-y-1 hover:border-primary/35 hover:bg-card/82"
     >
-      <div className="flex items-start justify-between gap-4">
-        <div className="min-w-0 space-y-3">
+      <article className="flex h-full flex-col">
+        <div className="aspect-[4/3]">
+          <NewsImage item={item} />
+        </div>
+
+        <div className="flex min-h-0 flex-1 flex-col justify-between px-2 pb-2 pt-4">
           <div className="flex flex-wrap items-center gap-2">
             <Badge variant="outline" className="border-border/70 bg-background/70 text-muted-foreground">
               {getPlatformLabel(item.source_platform)}
             </Badge>
             <span className="text-xs text-muted-foreground">{formatDateLabel(item.published_at)}</span>
           </div>
-          <div className="space-y-2">
-            <h3 className="line-clamp-2 text-lg font-medium leading-7 text-foreground transition-colors group-hover:text-primary">
+
+          <div className="mt-3 space-y-3">
+            <h3 className="line-clamp-3 text-[1.55rem] font-semibold leading-[1.18] tracking-[-0.02em] text-foreground transition-colors group-hover:text-primary">
               {item.title}
             </h3>
-            <p className="line-clamp-3 max-w-3xl text-sm leading-6 text-muted-foreground">
+            <p className="line-clamp-3 text-[14px] leading-6 text-muted-foreground">
               {item.summary}
             </p>
           </div>
-          <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
-            <span className="max-w-[14rem] truncate">{item.author_name}</span>
-            {item.tags?.map((tag) => (
-              <span
-                key={tag}
-                className="rounded-full bg-background/90 px-2.5 py-1 text-[11px] text-muted-foreground"
-              >
-                {tag}
-              </span>
-            ))}
+
+          <div className="mt-5 flex items-end justify-between gap-4">
+            <div className="flex min-w-0 flex-wrap items-center gap-2 text-sm text-muted-foreground">
+              <span className="max-w-[12rem] truncate">{item.author_name}</span>
+              {item.tags?.slice(0, 2).map((tag) => (
+                <span
+                  key={tag}
+                  className="rounded-full bg-background/90 px-2.5 py-1 text-[11px] text-muted-foreground"
+                >
+                  {tag}
+                </span>
+              ))}
+            </div>
+
+            <ArrowUpRight className="mb-0.5 h-4 w-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5 group-hover:text-primary" />
           </div>
         </div>
-
-        <ArrowUpRight className="mt-1 h-4 w-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5 group-hover:text-primary" />
-      </div>
+      </article>
     </a>
   );
 }
@@ -275,11 +349,11 @@ export function NewsPage() {
             </CardContent>
           </Card>
         ) : (
-          <div className="grid gap-4 lg:grid-cols-[minmax(0,1.18fr)_minmax(18rem,0.82fr)]">
-            <NewsHeroCard item={topStories[0]} accent="border-transparent bg-primary/12 text-primary" large />
-            <div className="grid gap-4">
+          <div className="grid gap-5 xl:grid-cols-[minmax(0,1.12fr)_minmax(21rem,0.88fr)]">
+            <NewsHeroCard item={topStories[0]} accent="border-transparent bg-primary/12 text-primary" />
+            <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-1">
               {topStories.slice(1).map((item) => (
-                <NewsHeroCard
+                <NewsStoryCard
                   key={item.id}
                   item={item}
                   accent={item.source_platform === 'x'
@@ -293,7 +367,7 @@ export function NewsPage() {
       </section>
 
       {listStories.length > 0 ? (
-        <section className="mt-6 space-y-4">
+        <section className="mt-8 grid gap-5 md:grid-cols-2 2xl:grid-cols-3">
           {listStories.map((item) => (
             <NewsListItem key={item.id} item={item} />
           ))}
