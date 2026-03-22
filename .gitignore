@@ -39,3 +39,7 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# local vendored tools
+/tools/agent-reach/.venv/
+/tools/agent-reach/**/__pycache__/

@@ -1,0 +1,12 @@
+#!/usr/bin/env sh
+set -eu
+
+BASE_DIR="$HOME/.agent-reach/tools/xiaohongshu-mcp"
+ARCHIVE="$BASE_DIR/xiaohongshu-mcp-darwin-arm64.tar.gz"
+RELEASE_URL="https://github.com/xpzouying/xiaohongshu-mcp/releases/download/v2026.03.09.0605-0e16f4b/xiaohongshu-mcp-darwin-arm64.tar.gz"
+
+mkdir -p "$BASE_DIR/bin" "$BASE_DIR/data"
+
+curl -L -C - -o "$ARCHIVE" "$RELEASE_URL"
+tar -xzf "$ARCHIVE" -C "$BASE_DIR/bin"
+chmod +x "$BASE_DIR/bin/"*

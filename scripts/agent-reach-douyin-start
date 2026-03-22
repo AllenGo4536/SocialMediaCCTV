@@ -1,0 +1,20 @@
+#!/usr/bin/env sh
+set -eu
+
+VENV_DIR="$HOME/.agent-reach/tools/douyin-mcp-server/.venv"
+PYTHON_BIN="$VENV_DIR/bin/python"
+LOG_DIR="$HOME/.agent-reach/logs"
+
+mkdir -p "$LOG_DIR"
+
+if [ ! -x "$PYTHON_BIN" ]; then
+  echo "Missing douyin Python environment: $PYTHON_BIN" >&2
+  exit 1
+fi
+
+exec "$PYTHON_BIN" -c "
+from douyin_mcp_server.server import mcp
+mcp.settings.host = '127.0.0.1'
+mcp.settings.port = 18070
+mcp.run(transport='streamable-http')
+" "$@"

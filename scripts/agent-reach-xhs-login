@@ -1,0 +1,16 @@
+#!/usr/bin/env sh
+set -eu
+
+BIN_DIR="$HOME/.agent-reach/tools/xiaohongshu-mcp/bin"
+DATA_DIR="$HOME/.agent-reach/tools/xiaohongshu-mcp/data"
+BIN="$BIN_DIR/xiaohongshu-login-darwin-arm64"
+
+mkdir -p "$DATA_DIR"
+
+if [ ! -x "$BIN" ]; then
+  echo "Missing xiaohongshu login binary: $BIN" >&2
+  exit 1
+fi
+
+cd "$DATA_DIR"
+exec "$BIN" "$@"

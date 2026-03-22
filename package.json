@@ -6,7 +6,15 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "agent-reach": "./scripts/agent-reach",
+    "agent-reach:xhs:install": "./scripts/agent-reach-xhs-install",
+    "agent-reach:xhs:start": "./scripts/agent-reach-xhs-start",
+    "agent-reach:xhs:login": "./scripts/agent-reach-xhs-login",
+    "agent-reach:xhs:enable": "./scripts/agent-reach-xhs-enable",
+    "agent-reach:douyin:install": "./scripts/agent-reach-douyin-install",
+    "agent-reach:douyin:start": "./scripts/agent-reach-douyin-start",
+    "agent-reach:douyin:enable": "./scripts/agent-reach-douyin-enable"
   },
   "dependencies": {
     "@radix-ui/react-alert-dialog": "^1.1.15",

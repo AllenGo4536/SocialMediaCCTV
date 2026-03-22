@@ -1,0 +1,14 @@
+#!/usr/bin/env sh
+set -eu
+
+VENV_DIR="$HOME/.agent-reach/tools/douyin-mcp-server/.venv"
+
+if [ ! -x "$VENV_DIR/bin/python" ]; then
+  /opt/homebrew/bin/python3.11 -m venv "$VENV_DIR"
+fi
+
+PIP_DEFAULT_TIMEOUT=300 \
+  "$VENV_DIR/bin/pip" install \
+  -i https://mirrors.aliyun.com/pypi/simple/ \
+  --trusted-host mirrors.aliyun.com \
+  douyin-mcp-server

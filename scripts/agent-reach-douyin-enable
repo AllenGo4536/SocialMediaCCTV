@@ -1,0 +1,17 @@
+#!/usr/bin/env sh
+set -eu
+
+ROOT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+LOG_DIR="$HOME/.agent-reach/logs"
+
+mkdir -p "$LOG_DIR"
+
+"$ROOT_DIR/scripts/agent-reach-douyin-install"
+nohup "$ROOT_DIR/scripts/agent-reach-douyin-start" > "$LOG_DIR/douyin-mcp.log" 2>&1 &
+sleep 3
+
+if ! mcporter config list 2>/dev/null | grep -q douyin; then
+  mcporter config add douyin http://localhost:18070/mcp
+fi
+
+mcporter list douyin
