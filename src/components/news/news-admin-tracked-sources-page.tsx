@@ -14,9 +14,7 @@ import { formatDateLabel, normalizeXHandle, REQUESTED_BY } from '@/components/ne
 
 export function NewsAdminTrackedSourcesPage() {
   const [trackedSources, setTrackedSources] = useState<TrackedSource[]>(trackedSourcesSeed);
-  const [trackedAuthorHandle, setTrackedAuthorHandle] = useState('');
   const [trackedAuthorUrl, setTrackedAuthorUrl] = useState('');
-  const [trackedMaxItems, setTrackedMaxItems] = useState('10');
   const [isTrackingAuthor, setIsTrackingAuthor] = useState(false);
 
   const counts = useMemo(() => {
@@ -28,12 +26,11 @@ export function NewsAdminTrackedSourcesPage() {
   }, [trackedSources]);
 
   const handleTrackAuthor = async () => {
-    const normalizedHandle = normalizeXHandle(trackedAuthorHandle || trackedAuthorUrl);
     const trimmedUrl = trackedAuthorUrl.trim();
-    const maxItems = Math.max(1, Number.parseInt(trackedMaxItems, 10) || 10);
+    const normalizedHandle = normalizeXHandle(trimmedUrl);
 
-    if (!normalizedHandle && !trimmedUrl) {
-      toast.error('先填 X 博主账号或主页链接。');
+    if (!normalizedHandle || !trimmedUrl) {
+      toast.error('先填 X 博主主页链接。');
       return;
     }
 
@@ -53,7 +50,7 @@ export function NewsAdminTrackedSourcesPage() {
           requestedBy: REQUESTED_BY,
           ingestMethod: 'auto_tracked',
           sort: 'Latest',
-          maxItems,
+          maxItems: 10,
         }),
       });
       const payload = await response.json();
@@ -77,9 +74,7 @@ export function NewsAdminTrackedSourcesPage() {
         const withoutSameHandle = current.filter((item) => item.handle.toLowerCase() !== nextSource.handle.toLowerCase());
         return [nextSource, ...withoutSameHandle];
       });
-      setTrackedAuthorHandle('');
       setTrackedAuthorUrl('');
-      setTrackedMaxItems(String(maxItems));
       toast.success(`已添加 ${nextSource.handle}，本次抓取 ${payload.totalPersisted || 0} 条资讯。`);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'X 博主添加失败');
@@ -90,8 +85,6 @@ export function NewsAdminTrackedSourcesPage() {
 
   return (
     <NewsAdminShell
-      sectionTitle="X博主定向监控"
-      sectionDescription="这个页面单独负责增加 X 博主、维护已关注博主列表，以及查看每个来源最近一次抓取到的动态。"
       actions={
         <Button
           variant="outline"
@@ -127,38 +120,13 @@ export function NewsAdminTrackedSourcesPage() {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4 px-6 pb-6">
-            <div className="rounded-2xl border border-primary/20 bg-primary/6 px-4 py-3 text-sm leading-6 text-muted-foreground">
-              在这里添加要持续监控的 X 博主。提交后会按博主维度抓取最新内容，并把结果按自动来源写入资讯候选池。
-            </div>
-
             <div className="space-y-2">
-              <label className="text-sm text-muted-foreground">X 账号</label>
+              <label className="text-sm text-muted-foreground">主页链接</label>
               <Input
-                value={trackedAuthorHandle}
-                onChange={(event) => setTrackedAuthorHandle(event.target.value)}
-                placeholder="@dontbesilent 或 https://x.com/dontbesilent"
+                value={trackedAuthorUrl}
+                onChange={(event) => setTrackedAuthorUrl(event.target.value)}
+                placeholder="https://x.com/dontbesilent"
               />
-            </div>
-
-            <div className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_7rem]">
-              <div className="space-y-2">
-                <label className="text-sm text-muted-foreground">主页链接（可选）</label>
-                <Input
-                  value={trackedAuthorUrl}
-                  onChange={(event) => setTrackedAuthorUrl(event.target.value)}
-                  placeholder="https://x.com/dontbesilent"
-                />
-              </div>
-              <div className="space-y-2">
-                <label className="text-sm text-muted-foreground">抓取条数</label>
-                <Input
-                  type="number"
-                  min={1}
-                  max={50}
-                  value={trackedMaxItems}
-                  onChange={(event) => setTrackedMaxItems(event.target.value)}
-                />
-              </div>
             </div>
 
             <Button onClick={handleTrackAuthor} disabled={isTrackingAuthor} className="w-full">
@@ -172,7 +140,7 @@ export function NewsAdminTrackedSourcesPage() {
           <CardHeader className="px-6 pt-6">
             <CardTitle className="flex items-center gap-2">
               <RadioTower className="h-5 w-5 text-primary" />
-              已关注博主 List
+              已关注博主
             </CardTitle>
           </CardHeader>
           <CardContent className="px-6 pb-6">

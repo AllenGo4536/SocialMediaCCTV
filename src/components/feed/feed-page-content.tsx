@@ -1,11 +1,11 @@
 "use client";
 
+import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
 import { FilterX, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Post, Profile } from '@/types';
 import { PostCard } from '@/components/feed/post-card';
-import { AddProfileForm } from '@/components/profile/add-profile-form';
 import { Button } from '@/components/ui/button';
 import { WorkspaceShell } from '@/components/layout/workspace-shell';
 import {
@@ -145,11 +145,6 @@ export function FeedPageContent() {
     fetchPosts(newPage, true, timeRange, filters, 'pagination');
   };
 
-  const handleRefresh = () => {
-    setPage(1);
-    fetchPosts(1, true, timeRange, filters, 'refresh');
-  };
-
   const handleTimeRangeChange = (range: 'all' | '30' | '7') => {
     if (range === timeRange) return;
     setTimeRange(range);
@@ -209,7 +204,11 @@ export function FeedPageContent() {
     <WorkspaceShell
       title="信息流页"
       description="视频素材池"
-      actions={<AddProfileForm onSuccess={() => handleRefresh()} />}
+      actions={
+        <Button asChild>
+          <Link href="/feed/creators">添加达人</Link>
+        </Button>
+      }
     >
       <section className="grid gap-3 sm:grid-cols-3">
         {[

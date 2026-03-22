@@ -7,6 +7,7 @@ import type { LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { UserNav } from '@/components/auth/user-nav';
 import { adminSections } from '@/components/news/news-admin-navigation';
+import { feedSections } from '@/components/feed/feed-navigation';
 
 interface WorkspaceShellProps {
   title: string;
@@ -47,6 +48,13 @@ export function WorkspaceShell({
 }: WorkspaceShellProps) {
   const pathname = usePathname();
   const isAdminRoute = pathname === '/admin' || pathname.startsWith('/admin/');
+  const isFeedRoute = pathname === '/feed' || pathname.startsWith('/feed/');
+
+  const getSubSections = (href: string) => {
+    if (href === '/admin') return isAdminRoute ? adminSections : null;
+    if (href === '/feed') return isFeedRoute ? feedSections : null;
+    return null;
+  };
 
   return (
     <div className="min-h-screen bg-background text-foreground">
@@ -109,9 +117,9 @@ export function WorkspaceShell({
                         <span className="font-medium">{item.label}</span>
                       </Link>
 
-                      {item.href === '/admin' && isAdminRoute ? (
+                      {getSubSections(item.href) ? (
                         <div className="mt-2 space-y-1 pl-4">
-                          {adminSections.map((section) => {
+                          {getSubSections(item.href)?.map((section) => {
                             const sectionActive = pathname === section.href;
                             const SectionIcon = section.icon;
 
@@ -179,9 +187,9 @@ export function WorkspaceShell({
                   })}
                 </div>
 
-                {isAdminRoute ? (
+                {isAdminRoute || isFeedRoute ? (
                   <div className="mb-5 flex gap-2 overflow-x-auto pb-1 lg:hidden">
-                    {adminSections.map((section) => {
+                    {(isAdminRoute ? adminSections : feedSections).map((section) => {
                       const active = pathname === section.href;
                       const Icon = section.icon;
 

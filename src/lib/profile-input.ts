@@ -103,3 +103,21 @@ export function parseProfileInput(platform: Platform, input: string): ParsedProf
   if (platform === 'tiktok') return parseTikTok(input);
   return parseYoutube(input);
 }
+
+export function detectPlatformFromProfileUrl(input: string): Platform | null {
+  const trimmed = input.trim();
+  if (!trimmed) return null;
+
+  try {
+    const url = new URL(/^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`);
+    const host = url.hostname.toLowerCase();
+
+    if (host.includes('instagram.com')) return 'instagram';
+    if (host.includes('tiktok.com')) return 'tiktok';
+    if (host.includes('youtube.com') || host.includes('youtu.be')) return 'youtube';
+
+    return null;
+  } catch {
+    return null;
+  }
+}

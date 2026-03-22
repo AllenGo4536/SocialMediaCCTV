@@ -149,10 +149,7 @@ export function NewsAdminArticlesPage() {
   };
 
   return (
-    <NewsAdminShell
-      sectionTitle="链接自动入库"
-      sectionDescription="用户只需要提供一个资讯链接。系统会自动判断来源平台，选择对应抓取方案，完成入库，然后在前端列表里呈现结果。"
-    >
+    <NewsAdminShell>
       <section className="grid gap-3 sm:grid-cols-3">
         {[
           { label: '总资讯数', value: counts.total, tone: 'text-foreground' },
@@ -173,10 +170,6 @@ export function NewsAdminArticlesPage() {
               <CardTitle>资讯链接入库</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4 px-6 pb-6">
-              <div className="rounded-2xl border border-primary/20 bg-primary/6 px-4 py-3 text-sm leading-6 text-muted-foreground">
-                这是当前唯一保留给用户的录入入口。贴入链接后，系统会先识别来源，再调用对应抓取方案完成入库。
-              </div>
-
               <div className="space-y-2">
                 <label className="text-sm text-muted-foreground">资讯链接</label>
                 <Input
@@ -190,10 +183,6 @@ export function NewsAdminArticlesPage() {
                 {isImporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <RadioTower className="h-4 w-4" />}
                 识别来源并入库
               </Button>
-
-              <p className="text-xs leading-5 text-muted-foreground">
-                当前会自动识别链接来源。已实现的抓取链路会直接入库；未实现的平台会给出明确错误提示。
-              </p>
             </CardContent>
           </Card>
         </div>
@@ -304,20 +293,6 @@ export function NewsAdminArticlesPage() {
                   </div>
                 </TabsContent>
               </Tabs>
-            </CardContent>
-          </Card>
-
-          <Card className="border-border/70 bg-card/65 py-0">
-            <CardHeader className="px-6 pt-6">
-              <CardTitle className="flex items-center gap-2">
-                <RadioTower className="h-5 w-5 text-primary" />
-                已入库文章
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="px-6 pb-6">
-              <p className="text-sm leading-6 text-muted-foreground">
-                这里集中展示自动识别并入库后的文章，以及当前标注状态。整个录入链路已经收敛为“贴链接 - 自动识别 - 自动抓取 - 列表呈现”。
-              </p>
             </CardContent>
           </Card>
         </div>
