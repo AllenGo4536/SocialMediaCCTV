@@ -1,7 +1,7 @@
 "use client";
 
-import { useMemo, useState } from 'react';
-import { ArrowUpRight, Clock3, FilterX } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import { ArrowUpRight, Clock3, FilterX, Loader2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -79,7 +79,7 @@ function NewsHeroCard({
             <h2 className={`max-w-2xl font-semibold tracking-tight text-balance text-foreground ${large ? 'text-[28px] leading-tight' : 'text-lg leading-snug'}`}>
               {item.title}
             </h2>
-            <p className={`max-w-2xl text-muted-foreground ${large ? 'text-sm leading-6' : 'text-sm leading-6'}`}>
+            <p className="max-w-2xl text-sm leading-6 text-muted-foreground">
               {item.summary}
             </p>
             <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
@@ -140,19 +140,41 @@ function NewsListItem({ item }: { item: NewsItem }) {
 export function NewsPage() {
   const [platformFilter, setPlatformFilter] = useState<NewsSourcePlatform | 'all'>('all');
   const [rangeFilter, setRangeFilter] = useState<RangeFilter>('all');
+  const [items, setItems] = useState<NewsItem[]>(newsItemsSeed.filter((item) => item.status === 'featured'));
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    async function loadFeaturedItems() {
+      try {
+        const response = await fetch('/api/news?status=featured', { cache: 'no-store' });
+        const payload = await response.json();
+
+        if (response.ok && Array.isArray(payload.items)) {
+          setItems(payload.items);
+        }
+      } finally {
+        setIsLoading(false);
+      }
+    }
+
+    void loadFeaturedItems();
+  }, []);
 
   const featuredItems = useMemo(() => {
-    return newsItemsSeed
-      .filter((item) => item.status === 'featured')
+    return items
       .filter((item) => platformFilter === 'all' || item.source_platform === platformFilter)
       .filter((item) => {
         if (rangeFilter === 'all') return true;
         return isWithinDays(item.published_at, Number(rangeFilter));
       })
       .sort((a, b) => +new Date(b.published_at) - +new Date(a.published_at));
-  }, [platformFilter, rangeFilter]);
+  }, [items, platformFilter, rangeFilter]);
 
-  const topStories = featuredItems.filter((item) => item.is_top_story).slice(0, 3);
+  const topStories = (
+    featuredItems.some((item) => item.is_top_story)
+      ? featuredItems.filter((item) => item.is_top_story)
+      : featuredItems
+  ).slice(0, 3);
   const listStories = featuredItems.filter((item) => !topStories.some((topStory) => topStory.id === item.id));
   const activeFilters = platformFilter !== 'all' || rangeFilter !== 'all';
 
@@ -165,7 +187,7 @@ export function NewsPage() {
         {[
           { label: '已入选', value: featuredItems.length },
           { label: 'Top Stories', value: topStories.length },
-          { label: '自动来源', value: newsItemsSeed.filter((item) => item.ingest_method === 'auto_tracked').length },
+          { label: '自动来源', value: items.filter((item) => item.ingest_method === 'auto_tracked').length },
           { label: '来源平台', value: 'X + 公众号' },
         ].map((item) => (
           <div key={item.label} className="rounded-2xl border border-border/70 bg-card/60 px-4 py-4">
@@ -237,7 +259,14 @@ export function NewsPage() {
       </section>
 
       <section className="mt-6">
-        {topStories.length === 0 ? (
+        {isLoading ? (
+          <Card className="border-dashed border-border/70 bg-card/40 py-0">
+            <CardContent className="flex items-center justify-center gap-2 p-8 text-center text-muted-foreground">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              正在加载资讯...
+            </CardContent>
+          </Card>
+        ) : topStories.length === 0 ? (
           <Card className="border-dashed border-border/70 bg-card/40 py-0">
             <CardContent className="p-8 text-center text-muted-foreground">
               当前筛选条件下暂无已入选资讯。
@@ -261,17 +290,13 @@ export function NewsPage() {
         )}
       </section>
 
-      <section className="mt-8">
-        <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-foreground">最新资讯</h2>
-          <p className="text-sm text-muted-foreground">{featuredItems.length} 条</p>
-        </div>
-        <div className="space-y-4">
+      {listStories.length > 0 ? (
+        <section className="mt-6 space-y-4">
           {listStories.map((item) => (
             <NewsListItem key={item.id} item={item} />
           ))}
-        </div>
-      </section>
+        </section>
+      ) : null}
     </WorkspaceShell>
   );
 }

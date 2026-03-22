@@ -14,6 +14,7 @@ export const apifyClient = new ApifyClient({
 export const INSTAGRAM_SCRAPER_ACTOR_ID = 'apify/instagram-post-scraper';
 export const TIKTOK_SCRAPER_ACTOR_ID = 'clockworks/tiktok-scraper';
 export const YOUTUBE_SCRAPER_ACTOR_ID = 'streamers/youtube-scraper';
+export const X_SCRAPER_ACTOR_ID = 'apidojo/twitter-scraper-lite';
 
 /**
  * Triggers an Instagram scrape for a list of usernames.
