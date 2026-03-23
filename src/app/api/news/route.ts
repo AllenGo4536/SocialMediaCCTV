@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getErrorMessage } from '@/lib/error-utils';
 import { createManualNewsItem, listNewsItems } from '@/lib/ingest/persistence';
+import { getAuthenticatedUserFromRequest } from '@/lib/server-auth';
 import { isSupabaseServerConfigured } from '@/lib/supabase';
 
 export async function GET(request: NextRequest) {
@@ -38,6 +39,11 @@ export async function POST(request: NextRequest) {
   }
 
   try {
+    const authenticatedUser = await getAuthenticatedUserFromRequest(request);
+    if (!authenticatedUser) {
+      return NextResponse.json({ error: '请先登录再手工录入资讯。' }, { status: 401 });
+    }
+
     const body = await request.json();
     const title = String(body?.title || '').trim();
     const summary = String(body?.summary || '').trim();
@@ -60,7 +66,7 @@ export async function POST(request: NextRequest) {
       authorName,
       publishedAt: new Date(String(body?.published_at || new Date().toISOString())).toISOString(),
       status: body?.status === 'featured' || body?.status === 'ignored' ? body.status : 'pending',
-      requestedBy: String(body?.requestedBy || 'team@virax.local').trim(),
+      requestedBy: authenticatedUser.email,
     });
 
     return NextResponse.json({ item });

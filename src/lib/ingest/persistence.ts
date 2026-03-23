@@ -277,6 +277,7 @@ function toTrackedSource(row: TrackedSourceRow): TrackedSource {
     status: row.status,
     last_checked_at: row.last_checked_at,
     latest_headline: row.latest_headline || '等待下一次抓取。',
+    created_by: row.created_by,
   };
 }
 

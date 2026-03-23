@@ -73,4 +73,5 @@ export interface TrackedSource {
     status: 'active' | 'paused';
     last_checked_at: string;
     latest_headline: string;
+    created_by: string;
 }

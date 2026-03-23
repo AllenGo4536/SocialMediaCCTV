@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getErrorMessage } from '@/lib/error-utils';
 import { ingestSource } from '@/lib/ingest/service';
+import { getAuthenticatedUserFromRequest } from '@/lib/server-auth';
 import { isSupabaseServerConfigured } from '@/lib/supabase';
 
 export async function POST(request: NextRequest) {
@@ -12,6 +13,11 @@ export async function POST(request: NextRequest) {
   }
 
   try {
+    const authenticatedUser = await getAuthenticatedUserFromRequest(request);
+    if (!authenticatedUser) {
+      return NextResponse.json({ error: '请先登录再执行入库。' }, { status: 401 });
+    }
+
     const body = await request.json();
     const mode = body?.mode === 'author_tracking' || body?.mode === 'keyword_monitoring'
       ? body.mode
@@ -20,7 +26,7 @@ export async function POST(request: NextRequest) {
     const sourcePlatform = body?.sourcePlatform === 'x' || body?.sourcePlatform === 'wechat'
       ? body.sourcePlatform
       : undefined;
-    const requestedBy = String(body?.requestedBy || 'team@virax.local').trim();
+    const requestedBy = authenticatedUser.email;
     const ingestMethod = body?.ingestMethod === 'auto_tracked' ? 'auto_tracked' : 'manual';
     const sort = body?.sort === 'Top' || body?.sort === 'Latest + Top' ? body.sort : 'Latest';
     const maxItems = Number.isFinite(Number(body?.maxItems)) ? Math.max(1, Number(body.maxItems)) : undefined;

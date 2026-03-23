@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getErrorMessage } from '@/lib/error-utils';
 import { ingestSource } from '@/lib/ingest/service';
 import { listTrackedSources, upsertTrackedSource } from '@/lib/ingest/persistence';
+import { getAuthenticatedUserFromRequest } from '@/lib/server-auth';
 import { isSupabaseServerConfigured } from '@/lib/supabase';
 
 function normalizeHandle(input: string) {
@@ -36,9 +37,14 @@ export async function POST(request: NextRequest) {
   }
 
   try {
+    const authenticatedUser = await getAuthenticatedUserFromRequest(request);
+    if (!authenticatedUser) {
+      return NextResponse.json({ error: '请先登录再写入监控列表。' }, { status: 401 });
+    }
+
     const body = await request.json();
     const authorUrl = String(body?.authorUrl || '').trim();
-    const requestedBy = String(body?.requestedBy || 'team@virax.local').trim();
+    const requestedBy = authenticatedUser.email;
     const handle = normalizeHandle(authorUrl);
 
     if (!authorUrl || !handle) {

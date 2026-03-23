@@ -3,19 +3,21 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Loader2, RadioTower, UserPlus } from 'lucide-react';
 import { toast } from 'sonner';
+import { useAuth } from '@/components/auth/auth-provider';
 import type { TrackedSource } from '@/types';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { NewsAdminShell } from '@/components/news/news-admin-shell';
-import { formatDateLabel, normalizeXHandle, REQUESTED_BY } from '@/components/news/news-admin-shared';
+import { formatDateLabel, normalizeXHandle } from '@/components/news/news-admin-shared';
 
 export function NewsAdminTrackedSourcesPage() {
   const [trackedSources, setTrackedSources] = useState<TrackedSource[]>([]);
   const [trackedAuthorUrl, setTrackedAuthorUrl] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [isTrackingAuthor, setIsTrackingAuthor] = useState(false);
+  const { user, session, openAuthModal } = useAuth();
 
   const counts = useMemo(() => {
     return {
@@ -51,6 +53,11 @@ export function NewsAdminTrackedSourcesPage() {
     const trimmedUrl = trackedAuthorUrl.trim();
     const normalizedHandle = normalizeXHandle(trimmedUrl);
 
+    if (!user) {
+      openAuthModal();
+      return;
+    }
+
     if (!normalizedHandle || !trimmedUrl) {
       toast.error('先填 X 博主主页链接。');
       return;
@@ -63,10 +70,10 @@ export function NewsAdminTrackedSourcesPage() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
         },
         body: JSON.stringify({
           authorUrl: trimmedUrl,
-          requestedBy: REQUESTED_BY,
         }),
       });
       const payload = await response.json();
@@ -173,6 +180,7 @@ export function NewsAdminTrackedSourcesPage() {
                           </Badge>
                         </div>
                         <p className="mt-1 text-sm text-muted-foreground">{source.handle}</p>
+                        <p className="mt-1 text-xs text-muted-foreground/80">添加人：{source.created_by}</p>
                       </div>
                       <p className="text-xs text-muted-foreground">最近检查：{formatDateLabel(source.last_checked_at)}</p>
                     </div>

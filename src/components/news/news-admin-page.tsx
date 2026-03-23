@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { ArrowUpRight, Clock3, Loader2, RadioTower, Trash2 } from 'lucide-react';
 import type { DateRange } from 'react-day-picker';
 import { toast } from 'sonner';
+import { useAuth } from '@/components/auth/auth-provider';
 import { matchesDateRange } from '@/lib/date-range';
 import { getPlatformLabel } from '@/lib/mock-news-data';
 import type { NewsItem, NewsSourcePlatform, NewsStatus } from '@/types';
@@ -30,6 +31,7 @@ export function NewsAdminArticlesPage() {
   const [sourceUrl, setSourceUrl] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [isImporting, setIsImporting] = useState(false);
+  const { user, session, openAuthModal } = useAuth();
 
   const filteredItems = useMemo(() => {
     return items.filter((item) => {
@@ -118,6 +120,10 @@ export function NewsAdminArticlesPage() {
 
   const handleImportFromUrl = async () => {
     const trimmedUrl = sourceUrl.trim();
+    if (!user) {
+      openAuthModal();
+      return;
+    }
     if (!trimmedUrl) {
       toast.error('先贴一个资讯链接。');
       return;
@@ -130,11 +136,11 @@ export function NewsAdminArticlesPage() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
         },
         body: JSON.stringify({
           mode: 'single_url',
           sourceUrl: trimmedUrl,
-          requestedBy: REQUESTED_BY,
           ingestMethod: 'manual',
         }),
       });
