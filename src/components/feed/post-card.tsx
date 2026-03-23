@@ -151,12 +151,13 @@ export function PostCard({ post, priority = false }: PostCardProps) {
                 : 'Instagram';
     const profileLink = post.profiles?.profile_url || post.permalink;
     const previewTags = post.profiles?.tags?.slice(0, 2) || [];
+    const coverFrameClassName = 'aspect-[3/2] min-h-[15rem] sm:min-h-[16rem] xl:min-h-[17rem]';
 
     return (
         <Card className="overflow-hidden h-full flex flex-col border border-border bg-card shadow-sm rounded-xl group transition-all hover:shadow-md">
             {/* Cover Image */}
             <CardContent
-                className={`p-0 relative aspect-video bg-muted ${canPlay ? 'cursor-pointer' : 'cursor-default'}`}
+                className={`p-0 relative bg-muted ${coverFrameClassName} ${canPlay ? 'cursor-pointer' : 'cursor-default'}`}
                 onClick={handlePlay}
             >
                 {isPlaying && playerMode === 'video' && playerSrc ? (
