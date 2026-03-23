@@ -19,16 +19,6 @@ const sourceOptions: Array<{ label: string; value: NewsSourcePlatform }> = [
   { label: '公众号', value: 'wechat' },
 ];
 
-function formatDateLabel(value: string) {
-  const date = new Date(value);
-  return new Intl.DateTimeFormat('zh-CN', {
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-  }).format(date);
-}
-
 function formatRelativeTime(value: string) {
   const diff = Date.now() - new Date(value).getTime();
   const hours = Math.floor(diff / (1000 * 60 * 60));

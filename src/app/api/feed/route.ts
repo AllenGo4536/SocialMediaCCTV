@@ -188,6 +188,22 @@ export async function GET(req: NextRequest) {
         }
     }
 
+    const startDate = searchParams.get('startDate');
+    if (startDate) {
+        const parsed = new Date(startDate);
+        if (!Number.isNaN(parsed.getTime())) {
+            query = query.gte('posted_at', parsed.toISOString());
+        }
+    }
+
+    const endDate = searchParams.get('endDate');
+    if (endDate) {
+        const parsed = new Date(endDate);
+        if (!Number.isNaN(parsed.getTime())) {
+            query = query.lte('posted_at', parsed.toISOString());
+        }
+    }
+
     const { data, error } = await query
         .order('like_count', { ascending: false })
         .range(offset, offset + limit);

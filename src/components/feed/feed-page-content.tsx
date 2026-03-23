@@ -2,11 +2,14 @@
 
 import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
+import type { DateRange } from 'react-day-picker';
 import { FilterX, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { toDateRangeQuery } from '@/lib/date-range';
 import { Post, Profile } from '@/types';
 import { PostCard } from '@/components/feed/post-card';
 import { Button } from '@/components/ui/button';
+import { DateRangeFilter } from '@/components/ui/date-range-filter';
 import { WorkspaceShell } from '@/components/layout/workspace-shell';
 import {
   BENCHMARK_OPTIONS,
@@ -34,12 +37,26 @@ const initialFilters: FeedFilters = {
   uploaders: [],
 };
 
-function buildFeedUrl(pageNum: number, range: 'all' | '30' | '7', filters: FeedFilters) {
+function buildFeedUrl(
+  pageNum: number,
+  range: 'all' | '30' | '7',
+  filters: FeedFilters,
+  dateRange?: DateRange
+) {
+  const dateRangeQuery = toDateRangeQuery(dateRange);
   const params = new URLSearchParams({
     page: String(pageNum),
     limit: '40',
     days: range,
   });
+
+  if (dateRangeQuery.startDate) {
+    params.set('startDate', dateRangeQuery.startDate);
+  }
+
+  if (dateRangeQuery.endDate) {
+    params.set('endDate', dateRangeQuery.endDate);
+  }
 
   if (filters.platforms.length > 0) {
     params.set('platforms', filters.platforms.join(','));
@@ -67,6 +84,7 @@ export function FeedPageContent() {
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
   const [timeRange, setTimeRange] = useState<'all' | '30' | '7'>('all');
+  const [dateRange, setDateRange] = useState<DateRange | undefined>();
   const [filters, setFilters] = useState<FeedFilters>(initialFilters);
   const [uploaderOptions, setUploaderOptions] = useState<string[]>([]);
   const latestRequestIdRef = useRef(0);
@@ -77,7 +95,8 @@ export function FeedPageContent() {
     refresh = false,
     range = timeRange,
     nextFilters = filters,
-    reason: FeedLoadingReason = 'refresh'
+    reason: FeedLoadingReason = 'refresh',
+    nextDateRange = dateRange
   ) => {
     const requestId = ++latestRequestIdRef.current;
     requestAbortControllerRef.current?.abort();
@@ -87,7 +106,7 @@ export function FeedPageContent() {
     try {
       setLoading(true);
       setLoadingReason(reason);
-      const res = await fetch(buildFeedUrl(pageNum, range, nextFilters), {
+      const res = await fetch(buildFeedUrl(pageNum, range, nextFilters, nextDateRange), {
         signal: controller.signal,
       });
       const payload = await res.json();
@@ -142,14 +161,15 @@ export function FeedPageContent() {
     if (newPage < 1) return;
     setPage(newPage);
     window.scrollTo({ top: 0, behavior: 'smooth' });
-    fetchPosts(newPage, true, timeRange, filters, 'pagination');
+    fetchPosts(newPage, true, timeRange, filters, 'pagination', dateRange);
   };
 
   const handleTimeRangeChange = (range: 'all' | '30' | '7') => {
     if (range === timeRange) return;
     setTimeRange(range);
+    setDateRange(undefined);
     setPage(1);
-    fetchPosts(1, true, range, filters, 'filter');
+    fetchPosts(1, true, range, filters, 'filter', undefined);
   };
 
   const toggleFilter = (key: 'cultureTags' | 'contentTags', value: string) => {
@@ -159,7 +179,7 @@ export function FeedPageContent() {
     const nextFilters = { ...filters, [key]: nextValues };
     setFilters(nextFilters);
     setPage(1);
-    fetchPosts(1, true, timeRange, nextFilters, 'filter');
+    fetchPosts(1, true, timeRange, nextFilters, 'filter', dateRange);
   };
 
   const togglePlatformFilter = (value: 'instagram' | 'tiktok' | 'youtube') => {
@@ -167,7 +187,7 @@ export function FeedPageContent() {
     const nextFilters = { ...filters, platforms: nextPlatforms };
     setFilters(nextFilters);
     setPage(1);
-    fetchPosts(1, true, timeRange, nextFilters, 'filter');
+    fetchPosts(1, true, timeRange, nextFilters, 'filter', dateRange);
   };
 
   const toggleBenchmarkFilter = (value: string) => {
@@ -175,7 +195,7 @@ export function FeedPageContent() {
     const nextFilters = { ...filters, benchmarkTypes: nextBenchmarkTypes };
     setFilters(nextFilters);
     setPage(1);
-    fetchPosts(1, true, timeRange, nextFilters, 'filter');
+    fetchPosts(1, true, timeRange, nextFilters, 'filter', dateRange);
   };
 
   const handleUploaderChange = (email: string) => {
@@ -183,16 +203,20 @@ export function FeedPageContent() {
     if (nextFilters.uploaders[0] === filters.uploaders[0]) return;
     setFilters(nextFilters);
     setPage(1);
-    fetchPosts(1, true, timeRange, nextFilters, 'filter');
+    fetchPosts(1, true, timeRange, nextFilters, 'filter', dateRange);
   };
 
   const clearFilters = () => {
     setFilters(initialFilters);
+    setTimeRange('all');
+    setDateRange(undefined);
     setPage(1);
-    fetchPosts(1, true, timeRange, initialFilters, 'filter');
+    fetchPosts(1, true, 'all', initialFilters, 'filter', undefined);
   };
 
   const hasActiveFilters =
+    timeRange !== 'all' ||
+    Boolean(dateRange?.from) ||
     filters.platforms.length > 0 ||
     filters.benchmarkTypes.length > 0 ||
     filters.cultureTags.length > 0 ||
@@ -214,7 +238,7 @@ export function FeedPageContent() {
         {[
           { label: '当前帖子', value: posts.length, tone: 'text-foreground' },
           { label: '活跃筛选', value: hasActiveFilters ? '已启用' : '未启用', tone: hasActiveFilters ? 'text-primary' : 'text-muted-foreground' },
-          { label: '时间范围', value: timeRange === 'all' ? '全部' : `近 ${timeRange} 天`, tone: 'text-sky-300' },
+          { label: '时间范围', value: dateRange?.from ? '自定义范围' : (timeRange === 'all' ? '全部' : `近 ${timeRange} 天`), tone: 'text-sky-300' },
         ].map((item) => (
           <div key={item.label} className="rounded-2xl border border-border/70 bg-card/60 px-4 py-3">
             <p className="text-[11px] uppercase tracking-[0.2em] text-muted-foreground">{item.label}</p>
@@ -225,31 +249,45 @@ export function FeedPageContent() {
 
       <section className="mt-6 space-y-5">
         <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
-          <div className="flex items-center gap-2 rounded-full border border-border/70 bg-card/65 p-1">
-            <Button
-              variant={timeRange === 'all' ? 'secondary' : 'ghost'}
-              size="sm"
-              onClick={() => handleTimeRangeChange('all')}
-              className="rounded-full"
-            >
-              全部
-            </Button>
-            <Button
-              variant={timeRange === '30' ? 'secondary' : 'ghost'}
-              size="sm"
-              onClick={() => handleTimeRangeChange('30')}
-              className="rounded-full"
-            >
-              近30天
-            </Button>
-            <Button
-              variant={timeRange === '7' ? 'secondary' : 'ghost'}
-              size="sm"
-              onClick={() => handleTimeRangeChange('7')}
-              className="rounded-full"
-            >
-              近7天
-            </Button>
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="flex items-center gap-2 rounded-full border border-border/70 bg-card/65 p-1">
+              <Button
+                variant={timeRange === 'all' ? 'secondary' : 'ghost'}
+                size="sm"
+                onClick={() => handleTimeRangeChange('all')}
+                className="rounded-full"
+              >
+                全部
+              </Button>
+              <Button
+                variant={timeRange === '30' ? 'secondary' : 'ghost'}
+                size="sm"
+                onClick={() => handleTimeRangeChange('30')}
+                className="rounded-full"
+              >
+                近30天
+              </Button>
+              <Button
+                variant={timeRange === '7' ? 'secondary' : 'ghost'}
+                size="sm"
+                onClick={() => handleTimeRangeChange('7')}
+                className="rounded-full"
+              >
+                近7天
+              </Button>
+            </div>
+
+            <DateRangeFilter
+              value={dateRange}
+              onChange={(range) => {
+                setDateRange(range);
+                setTimeRange('all');
+                setPage(1);
+                fetchPosts(1, true, 'all', filters, 'filter', range);
+              }}
+              align="start"
+              triggerClassName="h-10 min-w-[15rem]"
+            />
           </div>
         </div>
 
