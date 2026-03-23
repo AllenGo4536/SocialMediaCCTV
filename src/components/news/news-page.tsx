@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import type { DateRange } from 'react-day-picker';
-import { ArrowUpRight, Clock3, FilterX, Loader2 } from 'lucide-react';
+import { ArrowUpRight, Clock3, Eye, FilterX, Loader2 } from 'lucide-react';
 import { matchesDateRange } from '@/lib/date-range';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -29,6 +29,19 @@ function formatRelativeTime(value: string) {
 
   const days = Math.floor(hours / 24);
   return `${days} 天前`;
+}
+
+function formatReadCount(value: number) {
+  if (value >= 10000) {
+    return `${(value / 10000).toFixed(value >= 100000 ? 0 : 1).replace(/\.0$/, '')} 万阅读`;
+  }
+
+  return `${value} 阅读`;
+}
+
+function getReadCount(item: NewsItem) {
+  const value = item.source_metadata?.read_count;
+  return typeof value === 'number' && Number.isFinite(value) && value >= 0 ? value : null;
 }
 
 function NewsImage({
@@ -66,6 +79,7 @@ function NewsDiscoverCard({ item }: { item: NewsItem }) {
   const accent = item.source_platform === 'x'
     ? 'border-transparent bg-sky-500/10 text-sky-400'
     : 'border-transparent bg-amber-500/10 text-amber-500';
+  const readCount = getReadCount(item);
 
   return (
     <a
@@ -103,13 +117,22 @@ function NewsDiscoverCard({ item }: { item: NewsItem }) {
         </p>
 
         <div className="mt-auto flex items-center justify-between gap-3 pt-4 text-[11px] text-muted-foreground">
-          <div className="flex min-w-0 items-center gap-2">
+          <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
             <span className="truncate font-medium text-foreground/70">{item.author_name}</span>
             <span className="text-border/60">•</span>
             <span className="flex shrink-0 items-center gap-1">
               <Clock3 className="h-3 w-3" />
               {formatRelativeTime(item.published_at)}
             </span>
+            {readCount !== null ? (
+              <>
+                <span className="text-border/60">•</span>
+                <span className="flex shrink-0 items-center gap-1">
+                  <Eye className="h-3 w-3" />
+                  {formatReadCount(readCount)}
+                </span>
+              </>
+            ) : null}
           </div>
           <ArrowUpRight className="h-3.5 w-3.5 shrink-0 -translate-x-1 translate-y-1 text-primary opacity-0 transition-all group-hover:translate-x-0 group-hover:translate-y-0 group-hover:opacity-100" />
         </div>

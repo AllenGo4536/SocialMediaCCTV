@@ -151,8 +151,9 @@ export async function upsertNewsItemFromSource(input: {
   sourceRecord: SourceRecordRow;
   requestedBy: string;
   ingestMethod: string;
+  summaryOverride?: string;
 }) {
-  const { sourceRecord, requestedBy, ingestMethod } = input;
+  const { sourceRecord, requestedBy, ingestMethod, summaryOverride } = input;
 
   const { data: existing, error: existingError } = await supabaseAdmin
     .from('news_items')
@@ -165,7 +166,7 @@ export async function upsertNewsItemFromSource(input: {
   const payload = {
     source_record_id: sourceRecord.id,
     title: sourceRecord.title || '未命名资讯',
-    summary: sourceRecord.content_text || sourceRecord.title || '暂无摘要',
+    summary: summaryOverride || sourceRecord.content_text || sourceRecord.title || '暂无摘要',
     source_platform: sourceRecord.platform,
     source_url: sourceRecord.canonical_url,
     author_name: sourceRecord.author_name || '未知作者',
@@ -175,7 +176,7 @@ export async function upsertNewsItemFromSource(input: {
     status: 'pending',
     created_by: existing ? (existing as NewsItemRow).created_by : requestedBy,
     updated_by: requestedBy,
-    tags: sourceRecord.platform === 'x' ? ['X 导入'] : ['手工录入'],
+    tags: sourceRecord.platform === 'x' ? ['X 导入'] : ['公众号导入'],
     is_top_story: existing ? (existing as NewsItemRow).is_top_story : false,
     source_metadata: {
       external_id: sourceRecord.external_id,

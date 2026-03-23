@@ -1,9 +1,11 @@
+import type { WechatArticlePayload } from '@/lib/ingest/providers/wechat';
+
 /**
  * Bot Intake Types
  * Shared types for the OpenClaw bot integration
  */
 
-export type BotRoute = 'x_author_page' | 'x_post_page' | 'creator_profile' | 'unsupported';
+export type BotRoute = 'x_author_page' | 'x_post_page' | 'wechat_article' | 'creator_profile' | 'unsupported';
 
 export interface BotRequestContext {
   channel?: string;
@@ -22,11 +24,13 @@ export interface BotIntakeRequest {
   requestedBy: string;
   context?: BotRequestContext;
   profileTags?: ProfileTags;
+  wechatArticle?: WechatArticlePayload;
 }
 
 export interface BotIntakeSuccessData {
   jobId?: string;
   newsItemId?: string;
+  deduped?: boolean;
   trackedSourceId?: string;
   totalPersisted?: number;
   profileId?: string;

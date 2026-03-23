@@ -1,4 +1,5 @@
 import { fetchXSources } from '@/lib/ingest/providers/x';
+import { toSummaryText } from '@/lib/ingest/provider-utils';
 import { resolveSourcePlatform } from '@/lib/ingest/resolver';
 import {
   createIngestJob,
@@ -9,8 +10,10 @@ import {
 import type {
   AuthorTrackingIngestRequest,
   BatchIngestResult,
+  FetchResult,
   IngestRequest,
   IngestResult,
+  IngestJobRow,
   KeywordMonitoringIngestRequest,
   SingleUrlIngestRequest,
   SingleIngestResult,
@@ -59,12 +62,13 @@ function buildJobSourceUrl(input: IngestRequest) {
   return 'https://x.com';
 }
 
-async function persistFetchResult(input: IngestRequest, fetchResult: Awaited<ReturnType<typeof fetchXSources>>[number]) {
+async function persistFetchResult(input: IngestRequest, fetchResult: FetchResult) {
   const { sourceRecord, existed: sourceExisted } = await upsertSourceRecord(fetchResult);
   const { newsItem, existed: newsExisted } = await upsertNewsItemFromSource({
     sourceRecord,
     requestedBy: input.requestedBy,
     ingestMethod: input.ingestMethod || 'manual',
+    summaryOverride: toSummaryText(fetchResult),
   });
 
   return {
@@ -72,6 +76,64 @@ async function persistFetchResult(input: IngestRequest, fetchResult: Awaited<Ret
     newsItem,
     deduped: sourceExisted || newsExisted,
   };
+}
+
+async function failJob(job: IngestJobRow, error: unknown): Promise<never> {
+  const completedJob = await updateIngestJob(job.id, {
+    status: 'failed',
+    errorMessage: error instanceof Error ? error.message : 'Unknown ingest error',
+  });
+
+  throw Object.assign(error instanceof Error ? error : new Error('Unknown ingest error'), {
+    jobId: completedJob.id,
+  });
+}
+
+async function completeSingleUrlIngest(job: IngestJobRow, input: SingleUrlIngestRequest, fetchResult: FetchResult) {
+  const persisted = await persistFetchResult(input, fetchResult);
+  const completedJob = await updateIngestJob(job.id, {
+    status: 'succeeded',
+    sourceRecordId: persisted.sourceRecord.id,
+    newsItemId: persisted.newsItem.id,
+  });
+
+  const result: SingleIngestResult = {
+    mode: 'single_url',
+    job: completedJob,
+    sourceRecord: persisted.sourceRecord,
+    newsItem: persisted.newsItem,
+    deduped: persisted.deduped,
+  };
+
+  return result;
+}
+
+export async function ingestPrefetchedSingleSource(
+  input: SingleUrlIngestRequest,
+  fetchResult: FetchResult
+): Promise<SingleIngestResult> {
+  const sourcePlatform = input.sourcePlatform || resolveSourcePlatform(input.sourceUrl);
+
+  if (!sourcePlatform) {
+    throw new Error('暂时只支持已识别的平台链接，当前无法识别该 URL。');
+  }
+
+  if (fetchResult.platform !== sourcePlatform) {
+    throw new Error('抓取结果的平台和来源链接不一致。');
+  }
+
+  const job = await createIngestJob({
+    sourceUrl: buildJobSourceUrl(input),
+    sourcePlatform,
+    ingestMethod: input.ingestMethod || 'manual',
+    requestedBy: input.requestedBy,
+  });
+
+  try {
+    return await completeSingleUrlIngest(job, input, fetchResult);
+  } catch (error) {
+    return failJob(job, error);
+  }
 }
 
 export async function ingestSource(input: IngestRequest): Promise<IngestResult> {
@@ -90,7 +152,7 @@ export async function ingestSource(input: IngestRequest): Promise<IngestResult> 
 
   try {
     if (sourcePlatform !== 'x') {
-      throw new Error('当前第一阶段只接入了 X 渠道。');
+      throw new Error('微信公众号导入需要由 OpenClaw 先抓取正文，再调用 bot intake 接口入库。');
     }
 
     const mode = getMode(input);
@@ -100,23 +162,8 @@ export async function ingestSource(input: IngestRequest): Promise<IngestResult> 
       throw new Error('Apify 没有返回任何 X 内容。');
     }
 
-    if (mode === 'single_url') {
-      const persisted = await persistFetchResult(input, fetchResults[0]);
-      const completedJob = await updateIngestJob(job.id, {
-        status: 'succeeded',
-        sourceRecordId: persisted.sourceRecord.id,
-        newsItemId: persisted.newsItem.id,
-      });
-
-      const result: SingleIngestResult = {
-        mode: 'single_url',
-        job: completedJob,
-        sourceRecord: persisted.sourceRecord,
-        newsItem: persisted.newsItem,
-        deduped: persisted.deduped,
-      };
-
-      return result;
+    if (mode === 'single_url' && isSingleUrlRequest(input)) {
+      return completeSingleUrlIngest(job, input, fetchResults[0]);
     }
 
     const items = [];
@@ -131,7 +178,7 @@ export async function ingestSource(input: IngestRequest): Promise<IngestResult> 
     });
 
     const result: BatchIngestResult = {
-      mode,
+      mode: mode as BatchIngestResult['mode'],
       job: completedJob,
       items,
       totalFetched: fetchResults.length,
@@ -140,12 +187,6 @@ export async function ingestSource(input: IngestRequest): Promise<IngestResult> 
 
     return result;
   } catch (error) {
-    const completedJob = await updateIngestJob(job.id, {
-      status: 'failed',
-      errorMessage: error instanceof Error ? error.message : 'Unknown ingest error',
-    });
-    throw Object.assign(error instanceof Error ? error : new Error('Unknown ingest error'), {
-      jobId: completedJob.id,
-    });
+    return failJob(job, error);
   }
 }

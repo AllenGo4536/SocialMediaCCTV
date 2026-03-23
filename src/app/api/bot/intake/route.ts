@@ -48,6 +48,10 @@ function validateBotRequest(body: unknown): { valid: true; data: BotIntakeReques
   if (req.profileTags && typeof req.profileTags !== 'object') {
     return { valid: false, error: 'profileTags must be an object' };
   }
+
+  if (req.wechatArticle && typeof req.wechatArticle !== 'object') {
+    return { valid: false, error: 'wechatArticle must be an object' };
+  }
   
   return {
     valid: true,
@@ -56,6 +60,7 @@ function validateBotRequest(body: unknown): { valid: true; data: BotIntakeReques
       requestedBy: String(req.requestedBy).trim(),
       context: req.context as BotIntakeRequest['context'],
       profileTags: req.profileTags as BotIntakeRequest['profileTags'],
+      wechatArticle: req.wechatArticle as BotIntakeRequest['wechatArticle'],
     },
   };
 }

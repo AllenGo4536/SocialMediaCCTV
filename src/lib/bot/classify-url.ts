@@ -5,6 +5,8 @@
  * Classification Rules:
  * - x_author_page: X/Twitter root user page (/username only, no sub-paths)
  * - x_post_page: X/Twitter post URL (/status/, /i/status/, /article/)
+ * - wechat_article: WeChat Official Account article URL
+ * - wechat_article: WeChat Official Account article URL
  * - creator_profile: Instagram/TikTok/YouTube root creator profile only
  * - unsupported: everything else
  * 
@@ -49,6 +51,11 @@ const YOUTUBE_HOSTNAMES = new Set([
   'www.youtube.com',
   'm.youtube.com',
   'music.youtube.com',
+]);
+
+const WECHAT_HOSTNAMES = new Set([
+  'mp.weixin.qq.com',
+  'weixin.qq.com',
 ]);
 
 // ============================================================================
@@ -266,6 +273,7 @@ function isYouTubeProfileUrl(pathname: string): boolean {
  * @example
  * classifyUrl('https://x.com/elonmusk') // { route: 'x_author_page', cleanUrl: '...' }
  * classifyUrl('https://x.com/elonmusk/status/123') // { route: 'x_post_page', cleanUrl: '...' }
+ * classifyUrl('https://mp.weixin.qq.com/s/example') // { route: 'wechat_article', cleanUrl: '...' }
  * classifyUrl('https://www.instagram.com/nike/') // { route: 'creator_profile', cleanUrl: '...' }
  */
 export function classifyUrl(input: string): URLClassification {
@@ -313,6 +321,16 @@ export function classifyUrl(input: string): URLClassification {
       }
       return { route: 'unsupported', cleanUrl: url };
     }
+
+    if (WECHAT_HOSTNAMES.has(hostname)) {
+      if (isWechatArticleUrl(pathname)) {
+        return {
+          route: 'wechat_article',
+          cleanUrl: normalizeWechatUrl(url),
+        };
+      }
+      return { route: 'unsupported', cleanUrl: url };
+    }
     
     return { route: 'unsupported', cleanUrl: url };
     
@@ -333,6 +351,23 @@ function normalizeXUrl(url: string): string {
   } catch {
     return url;
   }
+}
+
+function normalizeWechatUrl(url: string): string {
+  try {
+    const parsed = new URL(url.startsWith('http') ? url : `https://${url}`);
+    if (parsed.hostname === 'weixin.qq.com') {
+      parsed.hostname = 'mp.weixin.qq.com';
+    }
+    parsed.hash = '';
+    return parsed.toString();
+  } catch {
+    return url;
+  }
+}
+
+function isWechatArticleUrl(pathname: string): boolean {
+  return pathname === '/s' || pathname.startsWith('/s/') || pathname === '/mp/appmsg/show';
 }
 
 /**
@@ -396,6 +431,12 @@ export const TEST_CASES = {
     'https://twitter.com/sama/status/1234567890',
     'https://x.com/i/status/1234567890',
     'https://x.com/elonmusk/article/1234567890',
+  ],
+
+  wechat_article_valid: [
+    'https://mp.weixin.qq.com/s/example',
+    'https://mp.weixin.qq.com/s/example?__biz=123&mid=456',
+    'https://weixin.qq.com/s/example',
   ],
   
   // X URLs - INVALID (unsupported)

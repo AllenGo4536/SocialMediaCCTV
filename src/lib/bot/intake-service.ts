@@ -9,7 +9,8 @@ import type {
   BotIntakeResponse
 } from './types';
 import { isValidBenchmarkTag, isValidCultureTag, isValidContentTag } from '@/lib/taxonomy';
-import type { IngestResult, BatchIngestResult, SingleIngestResult } from '@/lib/ingest/types';
+import type { IngestResult, BatchIngestResult } from '@/lib/ingest/types';
+import { toWechatFetchResult } from '@/lib/ingest/providers/wechat';
 
 /**
  * Process a bot intake request
@@ -20,7 +21,7 @@ import type { IngestResult, BatchIngestResult, SingleIngestResult } from '@/lib/
  * 4. Return unified response
  */
 export async function processBotIntake(request: BotIntakeRequest): Promise<BotIntakeResponse> {
-  const { url, requestedBy, profileTags } = request;
+  const { url, requestedBy, profileTags, wechatArticle } = request;
   
   // Step 1: Server-side URL classification (authoritative)
   const { route, cleanUrl } = classifyUrl(url);
@@ -32,6 +33,9 @@ export async function processBotIntake(request: BotIntakeRequest): Promise<BotIn
       
     case 'x_post_page':
       return handleXPostPage(cleanUrl, requestedBy);
+
+    case 'wechat_article':
+      return handleWechatArticle(cleanUrl, requestedBy, wechatArticle);
       
     case 'creator_profile':
       return handleCreatorProfile(cleanUrl, requestedBy, profileTags);
@@ -41,7 +45,7 @@ export async function processBotIntake(request: BotIntakeRequest): Promise<BotIn
       return {
         route: 'unsupported',
         status: 'rejected',
-        message: 'Only X author pages, X post URLs, and Instagram/TikTok/YouTube creator profiles are supported.',
+        message: 'Only X author pages, X post URLs, WeChat article URLs, and Instagram/TikTok/YouTube creator profiles are supported.',
       };
   }
 }
@@ -164,6 +168,53 @@ async function handleXPostPage(url: string, requestedBy: string): Promise<BotInt
       route: 'x_post_page',
       status: 'rejected',
       message: error instanceof Error ? error.message : 'Failed to process X post URL.',
+    };
+  }
+}
+
+async function handleWechatArticle(
+  url: string,
+  requestedBy: string,
+  wechatArticle?: BotIntakeRequest['wechatArticle']
+): Promise<BotIntakeResponse> {
+  if (!wechatArticle) {
+    return {
+      route: 'wechat_article',
+      status: 'rejected',
+      message: 'wechatArticle payload is required for WeChat article URLs.',
+    };
+  }
+
+  try {
+    const { ingestPrefetchedSingleSource } = await import('@/lib/ingest/service');
+    const fetchResult = toWechatFetchResult(url, wechatArticle);
+    const result = await ingestPrefetchedSingleSource(
+      {
+        mode: 'single_url',
+        sourceUrl: url,
+        sourcePlatform: 'wechat',
+        requestedBy,
+        ingestMethod: 'manual',
+      },
+      fetchResult
+    );
+
+    return {
+      route: 'wechat_article',
+      status: 'completed',
+      message: result.deduped ? 'WeChat article refreshed from existing record.' : 'WeChat article ingested and pending review.',
+      data: {
+        jobId: result.job.id,
+        newsItemId: result.newsItem.id,
+        deduped: result.deduped,
+      },
+    };
+  } catch (error) {
+    console.error('WeChat article intake error:', error);
+    return {
+      route: 'wechat_article',
+      status: 'rejected',
+      message: error instanceof Error ? error.message : 'Failed to process WeChat article URL.',
     };
   }
 }
