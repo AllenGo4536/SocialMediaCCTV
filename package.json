@@ -14,7 +14,8 @@
     "agent-reach:xhs:enable": "./scripts/agent-reach-xhs-enable",
     "agent-reach:douyin:install": "./scripts/agent-reach-douyin-install",
     "agent-reach:douyin:start": "./scripts/agent-reach-douyin-start",
-    "agent-reach:douyin:enable": "./scripts/agent-reach-douyin-enable"
+    "agent-reach:douyin:enable": "./scripts/agent-reach-douyin-enable",
+    "ai-tags:sync": "node --experimental-strip-types scripts/sync-ai-profile-tags.mjs"
   },
   "dependencies": {
     "@radix-ui/react-alert-dialog": "^1.1.15",

@@ -1,6 +1,13 @@
 
 import { NextRequest, NextResponse } from 'next/server';
-import { apifyClient } from '@/lib/apify';
+import {
+    apifyClient,
+    INSTAGRAM_PROFILE_DETAILS_ACTOR_ID,
+    INSTAGRAM_SCRAPER_ACTOR_ID,
+    TIKTOK_SCRAPER_ACTOR_ID,
+    YOUTUBE_SCRAPER_ACTOR_ID,
+} from '@/lib/apify';
+import { syncProfileAiSignals } from '@/lib/ai-profile-sync';
 import { supabaseAdmin } from '@/lib/supabase';
 
 type SupportedPlatform = 'instagram' | 'tiktok' | 'youtube';
@@ -59,6 +66,27 @@ interface DatasetItem {
     createTimeISO?: string;
     createTime?: number;
     title?: string;
+    username?: string;
+    fullName?: string;
+    biography?: string;
+    externalUrl?: string;
+    externalUrls?: Array<{
+        title?: string;
+        url?: string;
+        link_type?: string;
+    }>;
+    followersCount?: number;
+    followsCount?: number;
+    postsCount?: number;
+    private?: boolean;
+    verified?: boolean;
+    isBusinessAccount?: boolean;
+    businessCategoryName?: string;
+    profilePicUrl?: string;
+    profilePicUrlHD?: string;
+    hasChannel?: boolean;
+    highlightReelCount?: number;
+    igtvVideoCount?: number;
     thumbnailUrl?: string;
     viewCount?: number;
     likes?: number;
@@ -78,6 +106,24 @@ interface ProfileMetadataUpdate {
     avatar_url?: string;
     is_verified?: boolean;
     profile_url?: string;
+    biography?: string;
+    external_url?: string;
+    followers_count?: number;
+    follows_count?: number;
+    profile_posts_count?: number;
+    is_private?: boolean;
+    is_business_account?: boolean;
+    business_category_name?: string;
+    profile_scraped_at?: string;
+}
+
+interface ProfileSnapshotInsert {
+    profile_id: string;
+    platform: SupportedPlatform;
+    followers_count?: number;
+    follows_count?: number;
+    profile_posts_count?: number;
+    recorded_at: string;
 }
 
 function normalizeUsername(username: string) {
@@ -100,8 +146,40 @@ function mergeProfileMetadata(
     if (incoming.avatar_url) next.avatar_url = incoming.avatar_url;
     if (typeof incoming.is_verified === 'boolean') next.is_verified = incoming.is_verified;
     if (incoming.profile_url) next.profile_url = incoming.profile_url;
+    if (incoming.biography) next.biography = incoming.biography;
+    if (incoming.external_url) next.external_url = incoming.external_url;
+    if (typeof incoming.followers_count === 'number') next.followers_count = incoming.followers_count;
+    if (typeof incoming.follows_count === 'number') next.follows_count = incoming.follows_count;
+    if (typeof incoming.profile_posts_count === 'number') next.profile_posts_count = incoming.profile_posts_count;
+    if (typeof incoming.is_private === 'boolean') next.is_private = incoming.is_private;
+    if (typeof incoming.is_business_account === 'boolean') next.is_business_account = incoming.is_business_account;
+    if (incoming.business_category_name) next.business_category_name = incoming.business_category_name;
+    if (incoming.profile_scraped_at) next.profile_scraped_at = incoming.profile_scraped_at;
 
     return next;
+}
+
+function isInstagramProfileDetailsItem(item: DatasetItem) {
+    return Boolean(
+        item.username &&
+        (typeof item.biography === 'string'
+            || typeof item.followersCount === 'number'
+            || typeof item.profilePicUrl === 'string'
+            || typeof item.profilePicUrlHD === 'string'
+            || typeof item.fullName === 'string')
+    );
+}
+
+function matchesActorId(actorId: string | undefined, targetActorId: string) {
+    if (!actorId) return false;
+
+    const normalizedActorId = actorId.trim();
+    const apifyStyleActorId = targetActorId.replace('/', '~');
+
+    return normalizedActorId === targetActorId
+        || normalizedActorId === apifyStyleActorId
+        || normalizedActorId.includes(targetActorId)
+        || normalizedActorId.includes(apifyStyleActorId);
 }
 
 function extractInstagramProfileMetadata(item: DatasetItem): ProfileMetadataUpdate {
@@ -113,6 +191,27 @@ function extractInstagramProfileMetadata(item: DatasetItem): ProfileMetadataUpda
         avatar_url: cleanString(item.ownerProfilePicUrl),
         is_verified: typeof item.ownerIsVerified === 'boolean' ? item.ownerIsVerified : undefined,
         profile_url: username ? `https://www.instagram.com/${normalizeUsername(username)}/` : undefined,
+    };
+}
+
+function extractInstagramProfileDetailsMetadata(item: DatasetItem): ProfileMetadataUpdate {
+    const username = cleanString(item.username);
+
+    return {
+        external_id: cleanString(item.id),
+        full_name: cleanString(item.fullName),
+        avatar_url: cleanString(item.profilePicUrlHD) || cleanString(item.profilePicUrl),
+        is_verified: typeof item.verified === 'boolean' ? item.verified : undefined,
+        profile_url: cleanString(item.url) || (username ? `https://www.instagram.com/${normalizeUsername(username)}/` : undefined),
+        biography: cleanString(item.biography),
+        external_url: cleanString(item.externalUrl),
+        followers_count: typeof item.followersCount === 'number' ? item.followersCount : undefined,
+        follows_count: typeof item.followsCount === 'number' ? item.followsCount : undefined,
+        profile_posts_count: typeof item.postsCount === 'number' ? item.postsCount : undefined,
+        is_private: typeof item.private === 'boolean' ? item.private : undefined,
+        is_business_account: typeof item.isBusinessAccount === 'boolean' ? item.isBusinessAccount : undefined,
+        business_category_name: cleanString(item.businessCategoryName),
+        profile_scraped_at: new Date().toISOString(),
     };
 }
 
@@ -138,10 +237,12 @@ function extractYouTubeProfileMetadata(item: DatasetItem): ProfileMetadataUpdate
 }
 
 function detectPlatform(item: DatasetItem, actorId: string | undefined): SupportedPlatform | null {
-    if (actorId?.includes('streamers~youtube-scraper')) return 'youtube';
-    if (actorId?.includes('clockworks~tiktok-scraper')) return 'tiktok';
-    if (actorId?.includes('instagram')) return 'instagram';
+    if (matchesActorId(actorId, YOUTUBE_SCRAPER_ACTOR_ID)) return 'youtube';
+    if (matchesActorId(actorId, TIKTOK_SCRAPER_ACTOR_ID)) return 'tiktok';
+    if (matchesActorId(actorId, INSTAGRAM_SCRAPER_ACTOR_ID)) return 'instagram';
+    if (matchesActorId(actorId, INSTAGRAM_PROFILE_DETAILS_ACTOR_ID)) return 'instagram';
     if (item.ownerUsername) return 'instagram';
+    if (isInstagramProfileDetailsItem(item)) return 'instagram';
     if (item.authorMeta?.name || item.webVideoUrl?.includes('tiktok.com')) return 'tiktok';
     if (item.channelUrl || item.fromYTUrl || item.inputChannelUrl) return 'youtube';
     return null;
@@ -199,6 +300,7 @@ function extractYoutubeIdentifierFromUrl(input: string): string | null {
 
 function extractUsername(platform: SupportedPlatform, item: DatasetItem): string | null {
     if (platform === 'instagram') {
+        if (item.username) return normalizeUsername(item.username);
         return item.ownerUsername ? normalizeUsername(item.ownerUsername) : null;
     }
     if (platform === 'tiktok') {
@@ -440,6 +542,7 @@ export async function POST(req: NextRequest) {
 
         const profileMap = new Map<string, string>();
         const profileMetadataUpdates = new Map<string, ProfileMetadataUpdate>();
+        const profileSnapshotInserts = new Map<string, ProfileSnapshotInsert>();
 
         if (usernameBuckets.instagram.size > 0) {
             const { data: instagramProfiles } = await supabaseAdmin
@@ -486,9 +589,9 @@ export async function POST(req: NextRequest) {
             const itemData = item as DatasetItem;
             const platform = detectPlatform(itemData, actorId);
             if (!platform) continue;
-            if (!itemData.id) continue;
             const username = extractUsername(platform, itemData);
             if (!username && platform !== 'youtube') continue;
+            const isInstagramDetailsItem = platform === 'instagram' && isInstagramProfileDetailsItem(itemData);
 
             let profileId: string | undefined;
             if (platform === 'youtube') {
@@ -507,7 +610,9 @@ export async function POST(req: NextRequest) {
             if (!profileId) continue;
 
             const incomingProfileMetadata = platform === 'instagram'
-                ? extractInstagramProfileMetadata(itemData)
+                ? isInstagramProfileDetailsItem(itemData)
+                    ? extractInstagramProfileDetailsMetadata(itemData)
+                    : extractInstagramProfileMetadata(itemData)
                 : platform === 'tiktok'
                     ? extractTikTokProfileMetadata(itemData)
                     : extractYouTubeProfileMetadata(itemData);
@@ -516,7 +621,31 @@ export async function POST(req: NextRequest) {
                 mergeProfileMetadata(profileMetadataUpdates.get(profileId), incomingProfileMetadata)
             );
 
-            if (platform === 'instagram') {
+            if (
+                incomingProfileMetadata.profile_scraped_at &&
+                (
+                    typeof incomingProfileMetadata.followers_count === 'number'
+                    || typeof incomingProfileMetadata.follows_count === 'number'
+                    || typeof incomingProfileMetadata.profile_posts_count === 'number'
+                )
+            ) {
+                profileSnapshotInserts.set(profileId, {
+                    profile_id: profileId,
+                    platform,
+                    followers_count: incomingProfileMetadata.followers_count,
+                    follows_count: incomingProfileMetadata.follows_count,
+                    profile_posts_count: incomingProfileMetadata.profile_posts_count,
+                    recorded_at: incomingProfileMetadata.profile_scraped_at,
+                });
+            }
+
+            if (isInstagramDetailsItem) {
+                continue;
+            }
+
+            if (!itemData.id) {
+                continue;
+            } else if (platform === 'instagram') {
                 postsToUpsert.push(mapInstagramItem(itemData, profileId));
             } else if (platform === 'tiktok') {
                 postsToUpsert.push(mapTikTokItem(itemData, profileId));
@@ -544,6 +673,16 @@ export async function POST(req: NextRequest) {
                     }
                 })
             );
+        }
+
+        if (profileSnapshotInserts.size > 0) {
+            const { error: snapshotInsertError } = await supabaseAdmin
+                .from('profile_snapshots')
+                .insert([...profileSnapshotInserts.values()]);
+
+            if (snapshotInsertError) {
+                console.error('Profile snapshot insert error:', snapshotInsertError);
+            }
         }
 
         if (postsToUpsert.length > 0) {
@@ -584,6 +723,20 @@ export async function POST(req: NextRequest) {
                     if (snapshotError) {
                         console.error('Snapshot insert error:', snapshotError);
                     }
+                }
+            }
+
+            const touchedProfileIds = [...new Set(
+                postsToUpsert
+                    .map((post) => (typeof post.profile_id === 'string' ? post.profile_id : null))
+                    .filter((value): value is string => Boolean(value))
+            )];
+
+            if (touchedProfileIds.length > 0) {
+                try {
+                    await syncProfileAiSignals(touchedProfileIds);
+                } catch (aiSyncError) {
+                    console.error('AI profile tag sync error:', aiSyncError);
                 }
             }
         }

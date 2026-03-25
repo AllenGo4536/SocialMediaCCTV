@@ -1,7 +1,7 @@
 "use client";
 
 import { useDeferredValue, useEffect, useMemo, useState } from 'react';
-import { Loader2, PencilLine, Search, Tags, UserPlus } from 'lucide-react';
+import { Loader2, PencilLine, Search, Sparkles, Tags, UserPlus } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '@/components/auth/auth-provider';
 import { WorkspaceShell } from '@/components/layout/workspace-shell';
@@ -35,6 +35,13 @@ const tagToneByGroup = {
   content_type: 'border-border/60 bg-background/80 text-muted-foreground',
 } as const;
 
+const aiTagToneByGroup = {
+  content_theme: 'border-emerald-500/20 bg-emerald-500/10 text-emerald-200',
+  content_format: 'border-sky-500/20 bg-sky-500/10 text-sky-200',
+  tool_signal: 'border-violet-500/20 bg-violet-500/10 text-violet-200',
+  commercial_signal: 'border-amber-500/20 bg-amber-500/10 text-amber-200',
+} as const;
+
 function formatMetaTime(value?: string) {
   if (!value) return '暂无';
 
@@ -47,6 +54,13 @@ function formatMetaTime(value?: string) {
     hour: '2-digit',
     minute: '2-digit',
   }).format(date);
+}
+
+function formatCompactNumber(value?: number | null) {
+  if (typeof value !== 'number' || Number.isNaN(value)) return '暂无';
+  if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(1)}M`;
+  if (value >= 1_000) return `${(value / 1_000).toFixed(1)}K`;
+  return `${value}`;
 }
 
 export function FeedCreatorsPage() {
@@ -65,6 +79,8 @@ export function FeedCreatorsPage() {
   const [editCultureTags, setEditCultureTags] = useState<CultureTag[]>([]);
   const [editContentTags, setEditContentTags] = useState<ContentTag[]>([]);
   const [savingTags, setSavingTags] = useState(false);
+  const [syncingAiProfileId, setSyncingAiProfileId] = useState<string | null>(null);
+  const [syncingAllAi, setSyncingAllAi] = useState(false);
   const { user, session, openAuthModal } = useAuth();
   const deferredSearchQuery = useDeferredValue(searchQuery);
 
@@ -263,6 +279,47 @@ export function FeedCreatorsPage() {
     }
   };
 
+  const handleSyncAiTags = async (profileId?: string) => {
+    if (!user) {
+      openAuthModal();
+      return;
+    }
+
+    if (profileId) {
+      setSyncingAiProfileId(profileId);
+    } else {
+      setSyncingAllAi(true);
+    }
+
+    try {
+      const headers: HeadersInit = {
+        'Content-Type': 'application/json',
+      };
+
+      if (session?.access_token) {
+        headers.Authorization = `Bearer ${session.access_token}`;
+      }
+
+      const response = await fetch('/api/profiles/ai-tags', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(profileId ? { profileId } : {}),
+      });
+      const payload = await response.json();
+      if (!response.ok) {
+        throw new Error(payload?.error || 'AI 标签刷新失败');
+      }
+
+      toast.success(profileId ? '该账号 AI 标签已刷新' : `已刷新 ${payload.processedCount || 0} 个账号的 AI 标签`);
+      await loadProfiles();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'AI 标签刷新失败');
+    } finally {
+      setSyncingAiProfileId(null);
+      setSyncingAllAi(false);
+    }
+  };
+
   const getAvatarFallback = (profile: Profile) => {
     const seed = (profile.full_name || profile.username || profile.platform).trim();
     return seed.charAt(0).toUpperCase();
@@ -352,6 +409,16 @@ export function FeedCreatorsPage() {
                   className="pl-9"
                 />
               </div>
+              <Button
+                type="button"
+                variant="outline"
+                className="border-primary/20 bg-primary/5"
+                onClick={() => void handleSyncAiTags()}
+                disabled={syncingAllAi || loading}
+              >
+                {syncingAllAi ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+                批量刷新 AI 标签
+              </Button>
             </div>
           </CardHeader>
           <CardContent className="px-6 pb-6">
@@ -396,6 +463,29 @@ export function FeedCreatorsPage() {
                             <span>最近抓取 {formatMetaTime(profile.last_scraped_at)}</span>
                             <span>已抓取 {profile.post_count || 0} 条</span>
                           </div>
+                          {(typeof profile.followers_count === 'number' || typeof profile.follows_count === 'number' || typeof profile.profile_posts_count === 'number') ? (
+                            <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground/90">
+                              {typeof profile.followers_count === 'number' ? <span>粉丝 {formatCompactNumber(profile.followers_count)}</span> : null}
+                              {typeof profile.follows_count === 'number' ? <span>关注 {formatCompactNumber(profile.follows_count)}</span> : null}
+                              {typeof profile.profile_posts_count === 'number' ? <span>主页帖数 {formatCompactNumber(profile.profile_posts_count)}</span> : null}
+                              {profile.profile_scraped_at ? <span>Profile 更新 {formatMetaTime(profile.profile_scraped_at)}</span> : null}
+                            </div>
+                          ) : null}
+                          {profile.biography ? (
+                            <p className="mt-3 line-clamp-3 text-sm leading-6 text-muted-foreground">
+                              {profile.biography}
+                            </p>
+                          ) : null}
+                          {profile.external_url ? (
+                            <a
+                              href={profile.external_url}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="mt-2 block truncate text-xs text-primary/80 transition-colors hover:text-primary"
+                            >
+                              {profile.external_url}
+                            </a>
+                          ) : null}
                           {profile.tags && profile.tags.length > 0 ? (
                             <div className="mt-3 flex flex-wrap gap-2">
                               {profile.tags.map((tag) => (
@@ -407,6 +497,46 @@ export function FeedCreatorsPage() {
                                   {tag.label}
                                 </Badge>
                               ))}
+                            </div>
+                          ) : null}
+                          {profile.ai_tags && profile.ai_tags.length > 0 ? (
+                            <div className="mt-3">
+                              <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground/80">
+                                AI 标签
+                              </p>
+                              <div className="mt-2 flex flex-wrap gap-2">
+                                {profile.ai_tags.map((tag) => (
+                                  <Badge
+                                    key={tag.id}
+                                    variant="outline"
+                                    className={aiTagToneByGroup[tag.group]}
+                                  >
+                                    {tag.label}
+                                    {typeof tag.confidence === 'number' ? ` ${Math.round(tag.confidence * 100)}%` : ''}
+                                  </Badge>
+                                ))}
+                              </div>
+                            </div>
+                          ) : null}
+                          {profile.ai_summary ? (
+                            <div className="mt-3 rounded-xl border border-border/60 bg-card/50 px-3 py-3">
+                              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-muted-foreground/80">
+                                <span className="font-medium text-foreground/85">AI 摘要</span>
+                                <span>基于最近 {profile.ai_summary.analyzed_post_count} 条帖子</span>
+                                <span>更新于 {formatMetaTime(profile.ai_summary.generated_at)}</span>
+                              </div>
+                              <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                                {profile.ai_summary.summary}
+                              </p>
+                              {profile.ai_summary.top_keywords.length > 0 ? (
+                                <div className="mt-2 flex flex-wrap gap-2">
+                                  {profile.ai_summary.top_keywords.slice(0, 6).map((keyword) => (
+                                    <Badge key={keyword} variant="outline" className="border-border/60 bg-background/70 text-muted-foreground">
+                                      {keyword}
+                                    </Badge>
+                                  ))}
+                                </div>
+                              ) : null}
                             </div>
                           ) : null}
                           <a
@@ -422,6 +552,17 @@ export function FeedCreatorsPage() {
 
                       <div className="flex items-center gap-2 text-xs text-muted-foreground">
                         <span>{profile.creator_email || '内部录入'}</span>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="h-8 rounded-full"
+                          onClick={() => void handleSyncAiTags(profile.id)}
+                          disabled={syncingAllAi || syncingAiProfileId === profile.id}
+                        >
+                          {syncingAiProfileId === profile.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+                          刷新 AI
+                        </Button>
                         <Button
                           type="button"
                           variant="outline"

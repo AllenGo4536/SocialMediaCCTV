@@ -1,7 +1,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
-import { triggerInstagramScrape, triggerTikTokScrape, triggerYoutubeScrape } from '@/lib/apify';
+import { triggerInstagramProfileDetailsScrape, triggerInstagramScrape, triggerTikTokScrape, triggerYoutubeScrape } from '@/lib/apify';
 import { parseProfileInput } from '@/lib/profile-input';
 import {
     DEFAULT_PROFILE_BENCHMARK_TAG,
@@ -16,11 +16,34 @@ function uniqueStrings(values: string[]) {
     return [...new Set(values)];
 }
 
+function isMissingRelationError(error: { code?: string; message?: string } | null) {
+    if (!error) return false;
+    return error.code === '42P01' || error.message?.includes('does not exist') || false;
+}
+
 interface ProfileTagRow {
     profile_id: string;
     tag_definitions:
     | { id: string; name: string; group_key: string }
     | Array<{ id: string; name: string; group_key: string }>;
+}
+
+interface ProfileAiTagRow {
+    profile_id: string;
+    confidence: number | null;
+    tag_id: string;
+    ai_tag_definitions:
+    | { id: string; name: string; group_key: string }
+    | Array<{ id: string; name: string; group_key: string }>;
+}
+
+interface ProfileAiSummaryRow {
+    profile_id: string;
+    summary: string;
+    analyzed_post_count: number;
+    top_keywords: string[] | null;
+    source_version: string;
+    generated_at: string;
 }
 
 interface ProfilePostRow {
@@ -58,11 +81,43 @@ export async function GET() {
     }
 
     const tagsMap = new Map<string, Array<{ id: string; label: string; group: string }>>();
+    const aiTagsMap = new Map<string, Array<{ id: string; label: string; group: string; confidence: number | null }>>();
+    const aiSummaryMap = new Map<string, {
+        summary: string;
+        analyzed_post_count: number;
+        top_keywords: string[];
+        source_version: string;
+        generated_at: string;
+    }>();
     if (profileIds.length > 0) {
-        const { data: profileTags } = await supabaseAdmin
-            .from('profile_tags')
-            .select('profile_id, tag_definitions!inner(id, name, group_key)')
-            .in('profile_id', profileIds);
+        const [
+            { data: profileTags, error: profileTagsError },
+            { data: profileAiTags, error: profileAiTagsError },
+            { data: profileAiSummaries, error: profileAiSummariesError },
+        ] = await Promise.all([
+            supabaseAdmin
+                .from('profile_tags')
+                .select('profile_id, tag_definitions!inner(id, name, group_key)')
+                .in('profile_id', profileIds),
+            supabaseAdmin
+                .from('profile_ai_tags')
+                .select('profile_id, tag_id, confidence, ai_tag_definitions!inner(id, name, group_key)')
+                .in('profile_id', profileIds),
+            supabaseAdmin
+                .from('profile_ai_summaries')
+                .select('profile_id, summary, analyzed_post_count, top_keywords, source_version, generated_at')
+                .in('profile_id', profileIds),
+        ]);
+
+        if (profileTagsError) {
+            return NextResponse.json({ error: profileTagsError.message }, { status: 500 });
+        }
+        if (profileAiTagsError && !isMissingRelationError(profileAiTagsError)) {
+            return NextResponse.json({ error: profileAiTagsError.message }, { status: 500 });
+        }
+        if (profileAiSummariesError && !isMissingRelationError(profileAiSummariesError)) {
+            return NextResponse.json({ error: profileAiSummariesError.message }, { status: 500 });
+        }
 
         if (profileTags) {
             for (const row of profileTags as ProfileTagRow[]) {
@@ -77,6 +132,35 @@ export async function GET() {
                     group: tag.group_key,
                 });
                 tagsMap.set(row.profile_id, current);
+            }
+        }
+
+        if (profileAiTags && !profileAiTagsError) {
+            for (const row of profileAiTags as ProfileAiTagRow[]) {
+                const tag = Array.isArray(row.ai_tag_definitions)
+                    ? row.ai_tag_definitions[0]
+                    : row.ai_tag_definitions;
+                if (!tag) continue;
+                const current = aiTagsMap.get(row.profile_id) || [];
+                current.push({
+                    id: tag.id,
+                    label: tag.name,
+                    group: tag.group_key,
+                    confidence: row.confidence,
+                });
+                aiTagsMap.set(row.profile_id, current);
+            }
+        }
+
+        if (profileAiSummaries && !profileAiSummariesError) {
+            for (const row of profileAiSummaries as ProfileAiSummaryRow[]) {
+                aiSummaryMap.set(row.profile_id, {
+                    summary: row.summary,
+                    analyzed_post_count: row.analyzed_post_count,
+                    top_keywords: row.top_keywords || [],
+                    source_version: row.source_version,
+                    generated_at: row.generated_at,
+                });
             }
         }
     }
@@ -110,6 +194,8 @@ export async function GET() {
         post_count: postStatsMap.get(profile.id)?.post_count || 0,
         last_scraped_at: postStatsMap.get(profile.id)?.last_scraped_at || null,
         tags: tagsMap.get(profile.id) || [],
+        ai_tags: aiTagsMap.get(profile.id) || [],
+        ai_summary: aiSummaryMap.get(profile.id) || null,
     }));
 
     return NextResponse.json(enrichedProfiles);
@@ -239,6 +325,7 @@ export async function POST(req: NextRequest) {
         try {
             if (platform === 'instagram') {
                 await triggerInstagramScrape([username]);
+                await triggerInstagramProfileDetailsScrape([profileUrl]);
             } else if (platform === 'tiktok') {
                 await triggerTikTokScrape([username]);
             } else if (platform === 'youtube') {

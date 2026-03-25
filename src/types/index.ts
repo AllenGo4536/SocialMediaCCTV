@@ -7,18 +7,44 @@ export interface Profile {
     profile_url: string;
     avatar_url?: string;
     is_verified?: boolean;
+    biography?: string;
+    external_url?: string;
+    followers_count?: number;
+    follows_count?: number;
+    profile_posts_count?: number;
+    is_private?: boolean;
+    is_business_account?: boolean;
+    business_category_name?: string;
+    profile_scraped_at?: string;
     created_at: string;
     created_by?: string;
     creator_email?: string;
     post_count?: number;
     last_scraped_at?: string;
     tags?: ProfileTag[];
+    ai_tags?: AiProfileTag[];
+    ai_summary?: AiProfileSummary | null;
 }
 
 export interface ProfileTag {
     id: string;
     label: string;
     group: 'benchmark_type' | 'culture' | 'content_type';
+}
+
+export interface AiProfileTag {
+    id: string;
+    label: string;
+    group: 'content_theme' | 'content_format' | 'tool_signal' | 'commercial_signal';
+    confidence?: number | null;
+}
+
+export interface AiProfileSummary {
+    summary: string;
+    analyzed_post_count: number;
+    top_keywords: string[];
+    source_version: string;
+    generated_at: string;
 }
 
 export interface Post {

@@ -12,6 +12,7 @@ export const apifyClient = new ApifyClient({
 });
 
 export const INSTAGRAM_SCRAPER_ACTOR_ID = 'apify/instagram-post-scraper';
+export const INSTAGRAM_PROFILE_DETAILS_ACTOR_ID = 'shu8hvrXbJbY3Eb9W';
 export const TIKTOK_SCRAPER_ACTOR_ID = 'clockworks/tiktok-scraper';
 export const YOUTUBE_SCRAPER_ACTOR_ID = 'streamers/youtube-scraper';
 export const X_SCRAPER_ACTOR_ID = 'apidojo/twitter-scraper-lite';
@@ -42,6 +43,44 @@ export async function triggerInstagramScrape(usernames: string[], limit: number 
     // "username": ["..."]
 
     const run = await apifyClient.actor(INSTAGRAM_SCRAPER_ACTOR_ID).start(input, {
+        webhooks: webhookUrl ? [
+            {
+                eventTypes: ['ACTOR.RUN.SUCCEEDED'],
+                requestUrl: webhookUrl,
+            }
+        ] : undefined
+    });
+
+    return run;
+}
+
+/**
+ * Triggers an Instagram profile details scrape for a list of profile URLs.
+ * Uses the official Apify Instagram Scraper in `details` mode.
+ */
+export async function triggerInstagramProfileDetailsScrape(profileUrls: string[]) {
+    const webhookUrl = process.env.NEXT_PUBLIC_BASE_URL
+        ? `${process.env.NEXT_PUBLIC_BASE_URL}/api/webhooks/apify`
+        : undefined;
+
+    const directUrls = [...new Set(
+        profileUrls
+            .map((url) => typeof url === 'string' ? url.trim() : '')
+            .filter(Boolean)
+    )];
+
+    if (directUrls.length === 0) {
+        return null;
+    }
+
+    const input = {
+        directUrls,
+        resultsType: 'details',
+        resultsLimit: 1,
+        addParentData: false,
+    };
+
+    const run = await apifyClient.actor(INSTAGRAM_PROFILE_DETAILS_ACTOR_ID).start(input, {
         webhooks: webhookUrl ? [
             {
                 eventTypes: ['ACTOR.RUN.SUCCEEDED'],

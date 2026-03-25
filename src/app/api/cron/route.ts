@@ -1,7 +1,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
-import { triggerInstagramScrape, triggerTikTokScrape, triggerYoutubeScrape } from '@/lib/apify';
+import { triggerInstagramProfileDetailsScrape, triggerInstagramScrape, triggerTikTokScrape, triggerYoutubeScrape } from '@/lib/apify';
 import { ingestSource } from '@/lib/ingest/service';
 import { listActiveTrackedSources, markTrackedSourceChecked } from '@/lib/ingest/persistence';
 
@@ -54,6 +54,10 @@ export async function GET(req: NextRequest) {
         const instagramUsernames = profileList
             .filter((profile) => profile.platform === 'instagram')
             .map((profile) => profile.username);
+        const instagramProfileUrls = profileList
+            .filter((profile) => profile.platform === 'instagram')
+            .map((profile) => profile.profile_url)
+            .filter((url): url is string => typeof url === 'string' && url.length > 0);
         const tiktokUsernames = profileList
             .filter((profile) => profile.platform === 'tiktok')
             .map((profile) => profile.username);
@@ -68,6 +72,12 @@ export async function GET(req: NextRequest) {
         if (instagramUsernames.length > 0) {
             const run = await triggerInstagramScrape(instagramUsernames, 5);
             runs.push({ platform: 'instagram', runId: run.id });
+        }
+        if (instagramProfileUrls.length > 0) {
+            const run = await triggerInstagramProfileDetailsScrape(instagramProfileUrls);
+            if (run) {
+                runs.push({ platform: 'instagram', runId: run.id });
+            }
         }
         if (tiktokUsernames.length > 0) {
             const run = await triggerTikTokScrape(tiktokUsernames, 5);

@@ -1,4 +1,4 @@
-import { Film, UserPlus } from 'lucide-react';
+import { Film, TrendingUp, UserPlus } from 'lucide-react';
 
 export const feedSections = [
   {
@@ -14,5 +14,12 @@ export const feedSections = [
     shortLabel: '达人录入',
     description: '主页链接录入与已关注达人',
     icon: UserPlus,
+  },
+  {
+    href: '/feed/growth',
+    label: '涨粉雷达',
+    shortLabel: '涨粉雷达',
+    description: '基于主页快照的涨粉速度榜单',
+    icon: TrendingUp,
   },
 ] as const;
