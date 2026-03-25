@@ -28,6 +28,9 @@ interface FeedFilters {
 }
 
 type FeedLoadingReason = 'initial' | 'filter' | 'pagination' | 'refresh';
+type PaginationItem = number | 'start-ellipsis' | 'end-ellipsis';
+
+const PAGE_SIZE = 40;
 
 const initialFilters: FeedFilters = {
   platforms: [],
@@ -36,6 +39,40 @@ const initialFilters: FeedFilters = {
   contentTags: [],
   uploaders: [],
 };
+
+function buildPaginationItems(currentPage: number, totalPages: number): PaginationItem[] {
+  if (totalPages <= 7) {
+    return Array.from({ length: totalPages }, (_, index) => index + 1);
+  }
+
+  let start = Math.max(2, currentPage - 1);
+  let end = Math.min(totalPages - 1, currentPage + 1);
+
+  if (currentPage <= 3) {
+    end = 5;
+  }
+
+  if (currentPage >= totalPages - 2) {
+    start = totalPages - 4;
+  }
+
+  const items: PaginationItem[] = [1];
+
+  if (start > 2) {
+    items.push('start-ellipsis');
+  }
+
+  for (let page = start; page <= end; page += 1) {
+    items.push(page);
+  }
+
+  if (end < totalPages - 1) {
+    items.push('end-ellipsis');
+  }
+
+  items.push(totalPages);
+  return items;
+}
 
 function buildFeedUrl(
   pageNum: number,
@@ -83,6 +120,8 @@ export function FeedPageContent() {
   const [loadingReason, setLoadingReason] = useState<FeedLoadingReason | null>('initial');
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
+  const [totalPosts, setTotalPosts] = useState(0);
+  const [totalPages, setTotalPages] = useState(0);
   const [timeRange, setTimeRange] = useState<'all' | '30' | '7'>('30');
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
   const [filters, setFilters] = useState<FeedFilters>(initialFilters);
@@ -121,6 +160,8 @@ export function FeedPageContent() {
       }
 
       setHasMore(payload.meta.hasMore);
+      setTotalPosts(payload.meta.total ?? 0);
+      setTotalPages(payload.meta.totalPages ?? 0);
     } catch (err: unknown) {
       if (requestId !== latestRequestIdRef.current) return;
       if (err instanceof Error && err.name === 'AbortError') return;
@@ -158,7 +199,7 @@ export function FeedPageContent() {
   }, []);
 
   const handlePageChange = (newPage: number) => {
-    if (newPage < 1) return;
+    if (newPage < 1 || (totalPages > 0 && newPage > totalPages)) return;
     setPage(newPage);
     window.scrollTo({ top: 0, behavior: 'smooth' });
     fetchPosts(newPage, true, timeRange, filters, 'pagination', dateRange);
@@ -223,6 +264,9 @@ export function FeedPageContent() {
     filters.contentTags.length > 0 ||
     filters.uploaders.length > 0;
   const isFilterLoading = loading && loadingReason === 'filter';
+  const currentRangeStart = totalPosts === 0 || posts.length === 0 ? 0 : (page - 1) * PAGE_SIZE + 1;
+  const currentRangeEnd = totalPosts === 0 ? 0 : Math.min((page - 1) * PAGE_SIZE + posts.length, totalPosts);
+  const paginationItems = totalPages > 1 ? buildPaginationItems(page, totalPages) : [1];
 
   return (
     <WorkspaceShell
@@ -236,7 +280,7 @@ export function FeedPageContent() {
     >
       <section className="grid gap-3 sm:grid-cols-3">
         {[
-          { label: '当前帖子', value: posts.length, tone: 'text-foreground' },
+          { label: '当前帖子', value: totalPosts, tone: 'text-foreground' },
           { label: '活跃筛选', value: hasActiveFilters ? '已启用' : '未启用', tone: hasActiveFilters ? 'text-primary' : 'text-muted-foreground' },
           { label: '时间范围', value: dateRange?.from ? '自定义范围' : (timeRange === 'all' ? '全部' : `近 ${timeRange} 天`), tone: 'text-sky-300' },
         ].map((item) => (
@@ -439,28 +483,62 @@ export function FeedPageContent() {
       </section>
 
       {!loading && posts.length > 0 && (
-        <div className="mt-8 flex flex-col items-center gap-4 border-t border-border py-8">
-          <div className="flex items-center gap-6 text-sm font-medium">
-            <button
-              onClick={() => handlePageChange(page - 1)}
-              disabled={page === 1}
-              className="flex items-center gap-1 transition-colors hover:text-primary disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              ← 上一页
-            </button>
-
-            <div className="flex gap-2 text-muted-foreground">
-              第 <span className="text-foreground">{page}</span> 页
+        <div className="mt-8 border-t border-border py-8">
+          <nav aria-label="信息流分页" className="flex flex-col items-center gap-4">
+            <div aria-live="polite" className="text-center text-sm text-muted-foreground">
+              第 <span className="font-semibold text-foreground">{page}</span> /{' '}
+              <span className="font-semibold text-foreground">{Math.max(totalPages, 1)}</span> 页
+              <span className="mx-2 text-border/70">·</span>
+              显示 <span className="font-semibold text-foreground">{currentRangeStart}-{currentRangeEnd}</span>，共{' '}
+              <span className="font-semibold text-foreground">{totalPosts}</span> 条
             </div>
 
-            <button
-              onClick={() => handlePageChange(page + 1)}
-              disabled={!hasMore}
-              className="flex items-center gap-1 transition-colors hover:text-primary disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              下一页 →
-            </button>
-          </div>
+            <div className="flex flex-wrap items-center justify-center gap-2 text-sm font-medium">
+              <button
+                onClick={() => handlePageChange(page - 1)}
+                disabled={page === 1}
+                className="inline-flex h-10 items-center rounded-full border border-border/70 px-4 text-sm transition-colors hover:border-primary hover:text-primary disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                ← 上一页
+              </button>
+
+              <div className="flex items-center gap-2">
+                {paginationItems.map((item) => {
+                  if (typeof item !== 'number') {
+                    return (
+                      <span key={item} aria-hidden="true" className="px-1 text-muted-foreground">
+                        …
+                      </span>
+                    );
+                  }
+
+                  const isCurrentPage = item === page;
+                  return (
+                    <button
+                      key={item}
+                      type="button"
+                      aria-current={isCurrentPage ? 'page' : undefined}
+                      onClick={() => handlePageChange(item)}
+                      className={`inline-flex h-10 min-w-10 items-center justify-center rounded-full border px-3 text-sm transition-all ${isCurrentPage
+                        ? 'border-primary bg-primary text-primary-foreground shadow-sm'
+                        : 'border-border/70 text-muted-foreground hover:border-primary hover:text-primary'
+                        }`}
+                    >
+                      {item}
+                    </button>
+                  );
+                })}
+              </div>
+
+              <button
+                onClick={() => handlePageChange(page + 1)}
+                disabled={!hasMore}
+                className="inline-flex h-10 items-center rounded-full border border-border/70 px-4 text-sm transition-colors hover:border-primary hover:text-primary disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                下一页 →
+              </button>
+            </div>
+          </nav>
         </div>
       )}
     </WorkspaceShell>

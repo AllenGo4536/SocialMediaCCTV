@@ -54,6 +54,39 @@ interface ProfileTagLookupRow {
     tag_id: string;
 }
 
+function applyPostDateFilters<T extends {
+    gte: (column: string, value: string) => T;
+    lte: (column: string, value: string) => T;
+}>(query: T, searchParams: URLSearchParams) {
+    const days = searchParams.get('days');
+    if (days && days !== 'all') {
+        const daysNum = parseInt(days, 10);
+        if (!Number.isNaN(daysNum)) {
+            const date = new Date();
+            date.setDate(date.getDate() - daysNum);
+            query = query.gte('posted_at', date.toISOString());
+        }
+    }
+
+    const startDate = searchParams.get('startDate');
+    if (startDate) {
+        const parsed = new Date(startDate);
+        if (!Number.isNaN(parsed.getTime())) {
+            query = query.gte('posted_at', parsed.toISOString());
+        }
+    }
+
+    const endDate = searchParams.get('endDate');
+    if (endDate) {
+        const parsed = new Date(endDate);
+        if (!Number.isNaN(parsed.getTime())) {
+            query = query.lte('posted_at', parsed.toISOString());
+        }
+    }
+
+    return query;
+}
+
 export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url);
 
@@ -91,7 +124,7 @@ export async function GET(req: NextRequest) {
             if (uploaderIds.length === 0) {
                 return NextResponse.json({
                     data: [],
-                    meta: { page, limit, total: null, hasMore: false }
+                    meta: { page, limit, total: 0, totalPages: 0, hasMore: false }
                 });
             }
         }
@@ -156,7 +189,7 @@ export async function GET(req: NextRequest) {
     if (filteredProfileIds && filteredProfileIds.size === 0) {
         return NextResponse.json({
             data: [],
-            meta: { page, limit, total: null, hasMore: false }
+            meta: { page, limit, total: 0, totalPages: 0, hasMore: false }
         });
     }
 
@@ -178,35 +211,31 @@ export async function GET(req: NextRequest) {
         query = query.in('profile_id', [...filteredProfileIds]);
     }
 
-    const days = searchParams.get('days');
-    if (days && days !== 'all') {
-        const daysNum = parseInt(days, 10);
-        if (!isNaN(daysNum)) {
-            const date = new Date();
-            date.setDate(date.getDate() - daysNum);
-            query = query.gte('posted_at', date.toISOString());
-        }
+    query = applyPostDateFilters(query, searchParams);
+
+    let countQuery = supabaseAdmin
+        .from('posts')
+        .select('id', { count: 'exact', head: true });
+
+    if (filteredProfileIds && filteredProfileIds.size > 0) {
+        countQuery = countQuery.in('profile_id', [...filteredProfileIds]);
     }
 
-    const startDate = searchParams.get('startDate');
-    if (startDate) {
-        const parsed = new Date(startDate);
-        if (!Number.isNaN(parsed.getTime())) {
-            query = query.gte('posted_at', parsed.toISOString());
-        }
-    }
+    countQuery = applyPostDateFilters(countQuery, searchParams);
 
-    const endDate = searchParams.get('endDate');
-    if (endDate) {
-        const parsed = new Date(endDate);
-        if (!Number.isNaN(parsed.getTime())) {
-            query = query.lte('posted_at', parsed.toISOString());
-        }
-    }
+    const [
+        { count, error: countError },
+        { data, error },
+    ] = await Promise.all([
+        countQuery,
+        query
+            .order('like_count', { ascending: false })
+            .range(offset, offset + limit),
+    ]);
 
-    const { data, error } = await query
-        .order('like_count', { ascending: false })
-        .range(offset, offset + limit);
+    if (countError) {
+        return NextResponse.json({ error: countError.message }, { status: 500 });
+    }
 
     if (error) {
         return NextResponse.json({ error: error.message }, { status: 500 });
@@ -215,6 +244,8 @@ export async function GET(req: NextRequest) {
     const rawData = (data || []) as FeedPostRow[];
     const hasMore = rawData.length > limit;
     const safeData = hasMore ? rawData.slice(0, limit) : rawData;
+    const total = count || 0;
+    const totalPages = total === 0 ? 0 : Math.ceil(total / limit);
 
     const profileIds = [...new Set(safeData.map((post) => post.profile_id))];
     const creatorIds = [
@@ -296,7 +327,8 @@ export async function GET(req: NextRequest) {
         meta: {
             page,
             limit,
-            total: null,
+            total,
+            totalPages,
             hasMore
         }
     });
