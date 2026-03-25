@@ -145,7 +145,7 @@ export function AddProfileForm({ onSuccess, className }: AddProfileFormProps) {
                     <DialogHeader>
                         <DialogTitle>添加达人</DialogTitle>
                         <DialogDescription>
-                            请选择平台并填写用户名、主页链接与标签。YouTube 仅支持频道主页链接；如果不选标签，保存后会自动归类为“未分类”。
+                            请选择平台并填写用户名、主页链接与标签。品牌官方账号请打上“品牌官方号”一级标签。YouTube 仅支持频道主页链接；如果不选标签，保存后会自动归类为“未分类”。
                         </DialogDescription>
                     </DialogHeader>
 
@@ -204,6 +204,7 @@ export function AddProfileForm({ onSuccess, className }: AddProfileFormProps) {
                             <div className="px-3 sm:px-4 pb-3 pt-2">
                                 <ul className="text-xs sm:text-sm text-muted-foreground space-y-1.5 list-disc list-inside">
                                     <li>用户名与主页链接都需要填写。</li>
+                                    <li>如果录入的是品牌方官方账号，请选择“品牌官方号”一级标签。</li>
                                     <li>YouTube 仅支持频道页（如 <span className="font-mono text-xs bg-muted px-1 py-0.5 rounded text-foreground">/ @handle</span>、<span className="font-mono text-xs bg-muted px-1 py-0.5 rounded text-foreground">/channel/xxx</span>）。</li>
                                     <li>标签可以不选；未选择时系统会自动归类为“未分类”。</li>
                                     <li>添加后系统会尝试抓取最新 5 条内容，通常约 1 分钟内可见。</li>

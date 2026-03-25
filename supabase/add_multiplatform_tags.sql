@@ -76,6 +76,7 @@ insert into public.tag_definitions (id, name, group_key)
 values
     ('ip_benchmark', 'IP对标', 'benchmark_type'),
     ('aesthetic_benchmark', '美学对标', 'benchmark_type'),
+    ('brand_official_account', '品牌官方号', 'benchmark_type'),
     ('uncategorized', '未分类', 'benchmark_type'),
     ('culture_me', '中东', 'culture'),
     ('culture_west', '欧美', 'culture'),

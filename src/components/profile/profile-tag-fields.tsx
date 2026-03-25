@@ -3,6 +3,7 @@
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import {
+  BRAND_OFFICIAL_PROFILE_TAG,
   BENCHMARK_OPTIONS,
   CONTENT_OPTIONS,
   CULTURE_OPTIONS,
@@ -88,6 +89,8 @@ export function ProfileTagFields({
             ? '当前未选择标签，保存后会自动归类为“未分类”。'
             : benchmarkType === 'uncategorized'
               ? '当前会保存为“未分类”，后续可在关注列表继续修改。'
+              : benchmarkType === BRAND_OFFICIAL_PROFILE_TAG
+                ? '当前会保存为“品牌官方号”，用于标记 IG / TikTok / YouTube 的品牌官方账号。'
               : '只有“IP对标”支持继续选择文化和内容子标签。'}
         </p>
       </div>

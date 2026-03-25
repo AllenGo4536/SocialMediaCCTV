@@ -280,7 +280,7 @@ export function FeedCreatorsPage() {
             </Button>
 
             <p className="text-xs text-muted-foreground">
-              点击后会弹出标签选择框；如果不选标签，也会自动保存为“未分类”。
+              点击后会弹出标签选择框；品牌官方账号请选择“品牌官方号”，不选标签则会自动保存为“未分类”。
             </p>
           </CardContent>
         </Card>
@@ -379,6 +379,9 @@ export function FeedCreatorsPage() {
             <DialogDescription>
               当前将录入 {createPlatform ? platformLabels[createPlatform] : '达人'} 主页：
               <span className="ml-1 break-all font-mono text-xs">{profileUrl.trim() || '未填写'}</span>
+              <span className="mt-2 block text-xs text-muted-foreground">
+                如果这是品牌方官方账号，请直接选择“品牌官方号”一级标签。
+              </span>
             </DialogDescription>
           </DialogHeader>
 

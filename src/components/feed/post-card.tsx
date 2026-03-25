@@ -1,15 +1,183 @@
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import Image from 'next/image';
 import { Post } from '@/types';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Heart, MessageCircle, Play, Layers, ExternalLink, Eye } from 'lucide-react';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Heart, MessageCircle, Play, Layers, ExternalLink, Eye, ImageOff } from 'lucide-react';
 import { useVideoPlayback } from '@/contexts/video-playback-context';
 
 interface PostCardProps {
     post: Post;
     priority?: boolean;
+}
+
+function CoverPlaceholder({
+    platformLabel,
+    canPlay,
+}: {
+    platformLabel: string;
+    canPlay: boolean;
+}) {
+    return (
+        <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-[radial-gradient(circle_at_top,rgba(92,163,255,0.2),transparent_45%),linear-gradient(180deg,rgba(16,22,29,0.98),rgba(11,15,20,1))] px-6 text-center">
+            <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-white/10 bg-white/5 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
+                <ImageOff className="h-6 w-6 text-white/80" />
+            </div>
+            <div className="space-y-1">
+                <p className="text-sm font-semibold tracking-[0.02em] text-white/90">封面暂不可用</p>
+                <p className="text-xs leading-5 text-white/55">
+                    {canPlay ? `${platformLabel} 封面已失效，可直接播放` : `${platformLabel} 抓取封面已过期`}
+                </p>
+            </div>
+        </div>
+    );
+}
+
+function PostCoverMedia({
+    alt,
+    canPlay,
+    hasDisplayUrl,
+    initialImageSrc,
+    platformLabel,
+    priority,
+    proxiedImageUrl,
+}: {
+    alt: string;
+    canPlay: boolean;
+    hasDisplayUrl: boolean;
+    initialImageSrc: string;
+    platformLabel: string;
+    priority: boolean;
+    proxiedImageUrl: string;
+}) {
+    const [coverImageSrc, setCoverImageSrc] = useState(initialImageSrc);
+    const [coverImageUnavailable, setCoverImageUnavailable] = useState(!hasDisplayUrl);
+
+    if (coverImageUnavailable) {
+        return <CoverPlaceholder platformLabel={platformLabel} canPlay={canPlay} />;
+    }
+
+    return (
+        <>
+            {/* Blurred Background Layer */}
+            <Image
+                src={coverImageSrc}
+                alt=""
+                fill
+                className="object-cover opacity-40 blur-xl scale-110 pointer-events-none"
+                referrerPolicy="no-referrer"
+            />
+            {/* Foreground Contained Image */}
+            <Image
+                src={coverImageSrc}
+                alt={alt}
+                fill
+                sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
+                priority={priority}
+                className="object-contain transition-opacity group-hover:opacity-90 relative z-0"
+                referrerPolicy="no-referrer"
+                onError={() => {
+                    if (coverImageSrc !== proxiedImageUrl && hasDisplayUrl) {
+                        setCoverImageSrc(proxiedImageUrl);
+                        return;
+                    }
+
+                    setCoverImageUnavailable(true);
+                }}
+            />
+        </>
+    );
+}
+
+function PostVideoDialog({
+    caption,
+    isOpen,
+    onOpenChange,
+    permalink,
+    platform,
+    platformLabel,
+    playerMode,
+    playerSrc,
+    postedAt,
+    username,
+}: {
+    caption: string;
+    isOpen: boolean;
+    onOpenChange: (open: boolean) => void;
+    permalink: string;
+    platform: string;
+    platformLabel: string;
+    playerMode: 'video' | 'embed';
+    playerSrc: string;
+    postedAt: string;
+    username?: string;
+}) {
+    const mediaFrameClassName = platform === 'youtube'
+        ? 'aspect-video w-full max-w-5xl'
+        : 'aspect-[9/16] w-full max-w-[min(92vw,28rem)] sm:max-w-[28rem]';
+
+    return (
+        <Dialog open={isOpen} onOpenChange={onOpenChange}>
+            <DialogContent
+                className="max-w-[min(96vw,72rem)] overflow-hidden border-white/10 bg-[rgba(8,11,15,0.96)] p-0 text-white shadow-[0_24px_80px_rgba(0,0,0,0.45)]"
+            >
+                <DialogHeader className="gap-3 border-b border-white/10 px-5 py-4 text-left">
+                    <div className="flex items-start justify-between gap-3 pr-8">
+                        <div className="min-w-0 space-y-1">
+                            <DialogTitle className="line-clamp-2 text-base font-semibold text-white">
+                                {caption || `${platformLabel} 视频`}
+                            </DialogTitle>
+                            <DialogDescription className="flex flex-wrap items-center gap-2 text-xs text-white/55">
+                                <span>{username ? `@${username}` : platformLabel}</span>
+                                <span>•</span>
+                                <span>{formatDate(postedAt)}</span>
+                            </DialogDescription>
+                        </div>
+                        <Badge variant="secondary" className="shrink-0 border-none bg-white/10 text-white">
+                            {platformLabel}
+                        </Badge>
+                    </div>
+                </DialogHeader>
+
+                <div className="flex items-center justify-center bg-black px-3 py-4 sm:px-6 sm:py-6">
+                    <div className={`relative overflow-hidden rounded-2xl bg-black ${mediaFrameClassName}`}>
+                        {playerMode === 'video' ? (
+                            <video
+                                src={playerSrc}
+                                className="h-full w-full bg-black object-contain"
+                                controls
+                                autoPlay
+                                playsInline
+                            />
+                        ) : (
+                            <iframe
+                                src={playerSrc}
+                                title={caption || `${platformLabel} video`}
+                                className="h-full w-full border-0"
+                                allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
+                                allowFullScreen
+                                referrerPolicy="strict-origin-when-cross-origin"
+                            />
+                        )}
+                    </div>
+                </div>
+
+                <div className="flex justify-end border-t border-white/10 px-5 py-4 text-sm">
+                    <a
+                        href={permalink}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex shrink-0 items-center gap-1.5 text-white/80 transition-colors hover:text-white"
+                    >
+                        查看原帖
+                        <ExternalLink className="h-3.5 w-3.5" />
+                    </a>
+                </div>
+            </DialogContent>
+        </Dialog>
+    );
 }
 
 function extractTikTokVideoId(url: string | undefined, fallbackId: string | undefined): string | null {
@@ -97,14 +265,12 @@ export function PostCard({ post, priority = false }: PostCardProps) {
     const isPlaying = playingId === post.id;
     const displayUrl = post.display_url || '';
     const proxiedImageUrl = `/api/proxy/image?url=${encodeURIComponent(displayUrl)}`;
+    const hasDisplayUrl = Boolean(displayUrl);
 
     // Instagram cover URLs are more stable via proxy. Other platforms try direct fetch first for better latency.
-    const initialImageSrc = platform === 'instagram' ? proxiedImageUrl : displayUrl || proxiedImageUrl;
-    const [coverImageSrc, setCoverImageSrc] = useState(initialImageSrc);
-
-    useEffect(() => {
-        setCoverImageSrc(initialImageSrc);
-    }, [initialImageSrc]);
+    const initialImageSrc = hasDisplayUrl
+        ? (platform === 'instagram' ? proxiedImageUrl : displayUrl)
+        : '';
 
     const youtubeVideoId = extractYouTubeVideoId(post.permalink, post.external_id);
     const tiktokVideoId = extractTikTokVideoId(post.permalink, post.external_id);
@@ -143,6 +309,10 @@ export function PostCard({ post, priority = false }: PostCardProps) {
         }
     };
 
+    const handleDialogChange = (open: boolean) => {
+        setPlayingId(open ? post.id : null);
+    };
+
     const platformLabel =
         platform === 'tiktok'
             ? 'TikTok'
@@ -160,54 +330,19 @@ export function PostCard({ post, priority = false }: PostCardProps) {
                 className={`p-0 relative bg-muted ${coverFrameClassName} ${canPlay ? 'cursor-pointer' : 'cursor-default'}`}
                 onClick={handlePlay}
             >
-                {isPlaying && playerMode === 'video' && playerSrc ? (
-                    <video
-                        src={playerSrc}
-                        className="w-full h-full object-cover"
-                        controls
-                        autoPlay
-                        playsInline
-                        loop
-                    />
-                ) : isPlaying && playerMode === 'embed' && playerSrc ? (
-                    <iframe
-                        src={playerSrc}
-                        title={post.caption || `${platformLabel} video`}
-                        className="w-full h-full border-0"
-                        allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
-                        allowFullScreen
-                        referrerPolicy="strict-origin-when-cross-origin"
-                    />
-                ) : (
-                    <>
-                        {/* Blurred Background Layer */}
-                        <Image
-                            src={coverImageSrc}
-                            alt=""
-                            fill
-                            className="object-cover opacity-40 blur-xl scale-110 pointer-events-none"
-                            referrerPolicy="no-referrer"
-                        />
-                        {/* Foreground Contained Image */}
-                        <Image
-                            src={coverImageSrc}
-                            alt={post.caption || `${platformLabel} Post`}
-                            fill
-                            sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
-                            priority={priority}
-                            className="object-contain transition-opacity group-hover:opacity-90 relative z-0"
-                            referrerPolicy="no-referrer"
-                            onError={() => {
-                                if (coverImageSrc !== proxiedImageUrl) {
-                                    setCoverImageSrc(proxiedImageUrl);
-                                }
-                            }}
-                        />
-                    </>
-                )}
+                <PostCoverMedia
+                    key={`${post.id}:${displayUrl}:${platform}`}
+                    alt={post.caption || `${platformLabel} Post`}
+                    canPlay={canPlay}
+                    hasDisplayUrl={hasDisplayUrl}
+                    initialImageSrc={initialImageSrc}
+                    platformLabel={platformLabel}
+                    priority={priority}
+                    proxiedImageUrl={proxiedImageUrl}
+                />
 
                 {/* Video Play Overlay */}
-                {isVideo && canPlay && !isPlaying && (
+                {isVideo && canPlay && (
                     <div className="absolute inset-0 z-10 flex items-center justify-center flex md:hidden md:group-hover:flex transition-all duration-300">
                         <div className="bg-black/40 hover:bg-black/50 backdrop-blur-[2px] rounded-full p-4 shadow-xl border border-white/20 transform transition-transform group-hover:scale-110">
                             <Play className="w-8 h-8 text-white fill-white" />
@@ -296,6 +431,21 @@ export function PostCard({ post, priority = false }: PostCardProps) {
                     )}
                 </div>
             </div>
+
+            {isPlaying && playerMode && playerSrc ? (
+                <PostVideoDialog
+                    caption={post.caption || ''}
+                    isOpen={isPlaying}
+                    onOpenChange={handleDialogChange}
+                    permalink={post.permalink}
+                    platform={platform}
+                    platformLabel={platformLabel}
+                    playerMode={playerMode}
+                    playerSrc={playerSrc}
+                    postedAt={post.posted_at}
+                    username={post.profiles?.username}
+                />
+            ) : null}
         </Card>
     );
 }
