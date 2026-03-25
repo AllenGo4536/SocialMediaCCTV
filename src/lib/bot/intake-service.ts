@@ -8,7 +8,7 @@ import type {
   BotIntakeRequest, 
   BotIntakeResponse
 } from './types';
-import { isValidBenchmarkTag, isValidCultureTag, isValidContentTag } from '@/lib/taxonomy';
+import { DEFAULT_PROFILE_BENCHMARK_TAG } from '@/lib/taxonomy';
 import type { IngestResult, BatchIngestResult } from '@/lib/ingest/types';
 import { toWechatFetchResult } from '@/lib/ingest/providers/wechat';
 
@@ -221,7 +221,7 @@ async function handleWechatArticle(
 
 /**
  * Handle creator profile URL
- * -> Create profile with tags and trigger scrape
+ * -> Create profile with default "uncategorized" tag and trigger scrape
  * 
  * NOTE: created_by is set to NULL for bot-created profiles.
  * Bot requestedBy format (e.g., "openclaw:user_42") is not a valid uuid
@@ -234,61 +234,11 @@ async function handleWechatArticle(
 async function handleCreatorProfile(
   url: string, 
   requestedBy: string, 
-  profileTags?: BotIntakeRequest['profileTags']
+  _profileTags?: BotIntakeRequest['profileTags']
 ): Promise<BotIntakeResponse> {
-  // Validate required tags
-  if (!profileTags) {
-    return {
-      route: 'creator_profile',
-      status: 'rejected',
-      message: 'Profile tags are required for creator profile URLs.',
-      missingTags: ['benchmarkType', 'cultureTags', 'contentTags'],
-    };
-  }
-  
-  const { benchmarkType, cultureTags = [], contentTags = [] } = profileTags;
-  
-  // Validate benchmarkType
-  if (!benchmarkType || !isValidBenchmarkTag(benchmarkType)) {
-    return {
-      route: 'creator_profile',
-      status: 'rejected',
-      message: 'Invalid or missing benchmarkType.',
-      missingTags: ['benchmarkType'],
-    };
-  }
-  
-  // Validate cultureTags
-  const invalidCulture = cultureTags.filter(t => !isValidCultureTag(t));
-  if (invalidCulture.length > 0) {
-    return {
-      route: 'creator_profile',
-      status: 'rejected',
-      message: `Invalid culture tags: ${invalidCulture.join(', ')}`,
-      missingTags: ['cultureTags'],
-    };
-  }
-  
-  // Validate contentTags
-  const invalidContent = contentTags.filter(t => !isValidContentTag(t));
-  if (invalidContent.length > 0) {
-    return {
-      route: 'creator_profile',
-      status: 'rejected',
-      message: `Invalid content tags: ${invalidContent.join(', ')}`,
-      missingTags: ['contentTags'],
-    };
-  }
-  
-  // Aesthetic benchmark cannot have culture/content tags
-  if (benchmarkType === 'aesthetic_benchmark' && (cultureTags.length > 0 || contentTags.length > 0)) {
-    return {
-      route: 'creator_profile',
-      status: 'rejected',
-      message: 'Aesthetic benchmark cannot have culture/content tags.',
-    };
-  }
-  
+  void requestedBy;
+  void _profileTags;
+
   try {
     // Detect platform and create profile
     const { detectPlatformFromProfileUrl, parseProfileInput } = await import('@/lib/profile-input');
@@ -330,7 +280,7 @@ async function handleCreatorProfile(
     }
     
     // Prepare tag data
-    const tagIds = [benchmarkType, ...cultureTags, ...contentTags];
+    const tagIds = [DEFAULT_PROFILE_BENCHMARK_TAG];
     
     // Create profile
     // NOTE: created_by is NULL for bot-created profiles

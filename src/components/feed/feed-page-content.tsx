@@ -83,7 +83,7 @@ export function FeedPageContent() {
   const [loadingReason, setLoadingReason] = useState<FeedLoadingReason | null>('initial');
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
-  const [timeRange, setTimeRange] = useState<'all' | '30' | '7'>('all');
+  const [timeRange, setTimeRange] = useState<'all' | '30' | '7'>('30');
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
   const [filters, setFilters] = useState<FeedFilters>(initialFilters);
   const [uploaderOptions, setUploaderOptions] = useState<string[]>([]);
@@ -135,7 +135,7 @@ export function FeedPageContent() {
   };
 
   useEffect(() => {
-    fetchPosts(1, true, 'all', initialFilters, 'initial');
+    fetchPosts(1, true, '30', initialFilters, 'initial');
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -208,10 +208,10 @@ export function FeedPageContent() {
 
   const clearFilters = () => {
     setFilters(initialFilters);
-    setTimeRange('all');
+    setTimeRange('30');
     setDateRange(undefined);
     setPage(1);
-    fetchPosts(1, true, 'all', initialFilters, 'filter', undefined);
+    fetchPosts(1, true, '30', initialFilters, 'filter', undefined);
   };
 
   const hasActiveFilters =

@@ -2,7 +2,9 @@ export const PLATFORMS = ['instagram', 'tiktok', 'youtube'] as const;
 
 export type Platform = (typeof PLATFORMS)[number];
 
-export const BENCHMARK_TAGS = ['ip_benchmark', 'aesthetic_benchmark'] as const;
+export const DEFAULT_PROFILE_BENCHMARK_TAG = 'uncategorized' as const;
+
+export const BENCHMARK_TAGS = ['ip_benchmark', 'aesthetic_benchmark', DEFAULT_PROFILE_BENCHMARK_TAG] as const;
 export type BenchmarkTag = (typeof BENCHMARK_TAGS)[number];
 
 export const CULTURE_TAGS = ['culture_me', 'culture_west'] as const;
@@ -29,6 +31,7 @@ export interface TagDefinition {
 export const TAG_DEFINITIONS: TagDefinition[] = [
   { id: 'ip_benchmark', label: 'IP对标', group: 'benchmark_type' },
   { id: 'aesthetic_benchmark', label: '美学对标', group: 'benchmark_type' },
+  { id: DEFAULT_PROFILE_BENCHMARK_TAG, label: '未分类', group: 'benchmark_type' },
   { id: 'culture_me', label: '中东', group: 'culture' },
   { id: 'culture_west', label: '欧美', group: 'culture' },
   { id: 'style_performance_camera', label: '穿搭/唱跳/运镜', group: 'content_type' },
@@ -47,6 +50,7 @@ export const PLATFORM_OPTIONS: Array<{ value: Platform; label: string }> = [
 export const BENCHMARK_OPTIONS: Array<{ value: BenchmarkTag; label: string }> = [
   { value: 'ip_benchmark', label: 'IP对标' },
   { value: 'aesthetic_benchmark', label: '美学对标' },
+  { value: DEFAULT_PROFILE_BENCHMARK_TAG, label: '未分类' },
 ];
 
 export const CULTURE_OPTIONS: Array<{ value: CultureTag; label: string }> = [
@@ -81,4 +85,8 @@ export function isValidCultureTag(value: string): value is CultureTag {
 
 export function isValidContentTag(value: string): value is ContentTag {
   return CONTENT_SET.has(value);
+}
+
+export function supportsProfileDetailTags(value: BenchmarkTag | '') {
+  return value === 'ip_benchmark';
 }

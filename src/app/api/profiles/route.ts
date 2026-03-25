@@ -4,12 +4,13 @@ import { supabaseAdmin } from '@/lib/supabase';
 import { triggerInstagramScrape, triggerTikTokScrape, triggerYoutubeScrape } from '@/lib/apify';
 import { parseProfileInput } from '@/lib/profile-input';
 import {
+    DEFAULT_PROFILE_BENCHMARK_TAG,
     isValidBenchmarkTag,
     isValidContentTag,
     isValidCultureTag,
     isValidPlatform,
 } from '@/lib/taxonomy';
-import type { Platform } from '@/lib/taxonomy';
+import type { BenchmarkTag, Platform } from '@/lib/taxonomy';
 
 function uniqueStrings(values: string[]) {
     return [...new Set(values)];
@@ -109,7 +110,7 @@ export async function POST(req: NextRequest) {
         const platformRaw = typeof payload.platform === 'string' ? payload.platform.trim() : '';
         const input = typeof payload.input === 'string' ? payload.input.trim() : '';
         const manualUsername = typeof payload.manualUsername === 'string' ? payload.manualUsername.trim() : '';
-        const benchmarkType = typeof payload.benchmarkType === 'string' ? payload.benchmarkType : '';
+        const benchmarkTypeInput = typeof payload.benchmarkType === 'string' ? payload.benchmarkType.trim() : '';
         const cultureTags = Array.isArray(payload.cultureTags)
             ? payload.cultureTags.filter((tag: unknown): tag is string => typeof tag === 'string')
             : [];
@@ -123,8 +124,8 @@ export async function POST(req: NextRequest) {
         if (!input) {
             return NextResponse.json({ error: 'Profile input is required' }, { status: 400 });
         }
-        if (!benchmarkType || !isValidBenchmarkTag(benchmarkType)) {
-            return NextResponse.json({ error: 'Benchmark type is required' }, { status: 400 });
+        if (benchmarkTypeInput && !isValidBenchmarkTag(benchmarkTypeInput)) {
+            return NextResponse.json({ error: 'Invalid benchmark type' }, { status: 400 });
         }
 
         const invalidCultureTag = cultureTags.find((tag: string) => !isValidCultureTag(tag));
@@ -139,10 +140,11 @@ export async function POST(req: NextRequest) {
 
         const uniqueCultureTags = uniqueStrings(cultureTags);
         const uniqueContentTags = uniqueStrings(contentTags);
+        const benchmarkType = (benchmarkTypeInput || DEFAULT_PROFILE_BENCHMARK_TAG) as BenchmarkTag;
 
-        if (benchmarkType === 'aesthetic_benchmark' && (uniqueCultureTags.length > 0 || uniqueContentTags.length > 0)) {
+        if (benchmarkType !== 'ip_benchmark' && (uniqueCultureTags.length > 0 || uniqueContentTags.length > 0)) {
             return NextResponse.json(
-                { error: 'Aesthetic benchmark cannot have culture/content tags' },
+                { error: 'Only IP benchmark supports culture/content tags' },
                 { status: 400 }
             );
         }
@@ -188,10 +190,9 @@ export async function POST(req: NextRequest) {
             throw error;
         }
 
-        const tagIds = [benchmarkType, ...uniqueCultureTags, ...uniqueContentTags];
-        if (tagIds.length === 0) {
-            return NextResponse.json({ error: 'At least one tag is required' }, { status: 400 });
-        }
+        const tagIds = benchmarkType === 'ip_benchmark'
+            ? [benchmarkType, ...uniqueCultureTags, ...uniqueContentTags]
+            : [benchmarkType];
 
         const { error: profileTagError } = await supabaseAdmin
             .from('profile_tags')

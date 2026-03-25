@@ -14,7 +14,7 @@ export interface BotRequestContext {
 }
 
 export interface ProfileTags {
-  benchmarkType: string;
+  benchmarkType?: string;
   cultureTags?: string[];
   contentTags?: string[];
 }

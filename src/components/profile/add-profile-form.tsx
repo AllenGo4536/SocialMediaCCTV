@@ -1,6 +1,6 @@
 "use client";
 
-import { Dispatch, SetStateAction, useState } from 'react';
+import { useState } from 'react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Loader2, Plus } from 'lucide-react';
@@ -8,13 +8,9 @@ import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/components/auth/auth-provider';
 import confetti from 'canvas-confetti';
-import {
-    BENCHMARK_OPTIONS,
-    CONTENT_OPTIONS,
-    CULTURE_OPTIONS,
-    PLATFORM_OPTIONS,
-} from '@/lib/taxonomy';
+import { PLATFORM_OPTIONS } from '@/lib/taxonomy';
 import type { BenchmarkTag, ContentTag, CultureTag, Platform } from '@/lib/taxonomy';
+import { ProfileTagFields } from '@/components/profile/profile-tag-fields';
 import {
     Dialog,
     DialogContent,
@@ -40,24 +36,10 @@ export function AddProfileForm({ onSuccess, className }: AddProfileFormProps) {
     const [loading, setLoading] = useState(false);
     const { user, session, openAuthModal } = useAuth();
 
-    const isIpBenchmark = benchmarkType === 'ip_benchmark';
     const canSubmit =
         !loading &&
         username.trim().length > 0 &&
-        profileUrl.trim().length > 0 &&
-        benchmarkType !== '';
-
-    const toggleArrayItem = <T extends string>(
-        array: T[],
-        value: T,
-        setter: Dispatch<SetStateAction<T[]>>
-    ) => {
-        if (array.includes(value)) {
-            setter(array.filter((item) => item !== value));
-            return;
-        }
-        setter([...array, value]);
-    };
+        profileUrl.trim().length > 0;
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -72,14 +54,6 @@ export function AddProfileForm({ onSuccess, className }: AddProfileFormProps) {
         }
         if (!profileUrl.trim()) {
             toast.error('请输入主页链接');
-            return;
-        }
-        if (!benchmarkType) {
-            toast.error('请选择对标类型');
-            return;
-        }
-        if (benchmarkType === 'aesthetic_benchmark' && (cultureTags.length > 0 || contentTags.length > 0)) {
-            toast.error('美学对标不支持文化/内容类型子标签');
             return;
         }
 
@@ -100,7 +74,7 @@ export function AddProfileForm({ onSuccess, className }: AddProfileFormProps) {
                     platform,
                     input: profileUrl.trim(),
                     manualUsername: username.trim(),
-                    benchmarkType,
+                    ...(benchmarkType ? { benchmarkType } : {}),
                     cultureTags,
                     contentTags,
                 })
@@ -171,7 +145,7 @@ export function AddProfileForm({ onSuccess, className }: AddProfileFormProps) {
                     <DialogHeader>
                         <DialogTitle>添加达人</DialogTitle>
                         <DialogDescription>
-                            请选择平台并填写用户名、主页链接与标签。YouTube 仅支持频道主页链接。标签信息未完整时不可提交。
+                            请选择平台并填写用户名、主页链接与标签。YouTube 仅支持频道主页链接；如果不选标签，保存后会自动归类为“未分类”。
                         </DialogDescription>
                     </DialogHeader>
 
@@ -209,70 +183,16 @@ export function AddProfileForm({ onSuccess, className }: AddProfileFormProps) {
                             />
                         </div>
 
-                        <div className="p-3 sm:p-4 border border-border rounded-lg bg-secondary/20 space-y-3 sm:space-y-4">
-                            <div className="space-y-2">
-                                <p className="text-sm font-semibold">对标类型（必选）</p>
-                                <div className="flex flex-wrap gap-2 sm:gap-3 text-sm">
-                                    {BENCHMARK_OPTIONS.map((option) => (
-                                        <label key={option.value} className="inline-flex items-center gap-2">
-                                            <input
-                                                type="radio"
-                                                name="benchmark-type"
-                                                value={option.value}
-                                                checked={benchmarkType === option.value}
-                                                onChange={() => {
-                                                    setBenchmarkType(option.value);
-                                                    if (option.value === 'aesthetic_benchmark') {
-                                                        setCultureTags([]);
-                                                        setContentTags([]);
-                                                    }
-                                                }}
-                                                disabled={loading}
-                                            />
-                                            {option.label}
-                                        </label>
-                                    ))}
-                                </div>
-                            </div>
-
-                            <div className="space-y-2">
-                                <p className={cn("text-sm font-semibold", !isIpBenchmark && "text-muted-foreground")}>
-                                    文化（仅 IP 对标）
-                                </p>
-                                <div className="flex flex-wrap gap-2 sm:gap-3 text-sm">
-                                    {CULTURE_OPTIONS.map((option) => (
-                                        <label key={option.value} className="inline-flex items-center gap-2">
-                                            <input
-                                                type="checkbox"
-                                                checked={cultureTags.includes(option.value)}
-                                                onChange={() => toggleArrayItem(cultureTags, option.value, setCultureTags)}
-                                                disabled={loading || !isIpBenchmark}
-                                            />
-                                            {option.label}
-                                        </label>
-                                    ))}
-                                </div>
-                            </div>
-
-                            <div className="space-y-2">
-                                <p className={cn("text-sm font-semibold", !isIpBenchmark && "text-muted-foreground")}>
-                                    内容类型（仅 IP 对标，可多选）
-                                </p>
-                                <div className="flex flex-wrap gap-2 sm:gap-3 text-sm">
-                                    {CONTENT_OPTIONS.map((option) => (
-                                        <label key={option.value} className="inline-flex items-center gap-2">
-                                            <input
-                                                type="checkbox"
-                                                checked={contentTags.includes(option.value)}
-                                                onChange={() => toggleArrayItem(contentTags, option.value, setContentTags)}
-                                                disabled={loading || !isIpBenchmark}
-                                            />
-                                            {option.label}
-                                        </label>
-                                    ))}
-                                </div>
-                            </div>
-                        </div>
+                        <ProfileTagFields
+                            benchmarkType={benchmarkType}
+                            cultureTags={cultureTags}
+                            contentTags={contentTags}
+                            onBenchmarkTypeChange={setBenchmarkType}
+                            onCultureTagsChange={setCultureTags}
+                            onContentTagsChange={setContentTags}
+                            disabled={loading}
+                            allowEmptyBenchmark
+                        />
 
                         <details className="group">
                             <summary className="p-3 sm:p-4 bg-secondary/30 rounded-lg border border-border/50 cursor-pointer list-none flex items-center gap-2">
@@ -285,7 +205,7 @@ export function AddProfileForm({ onSuccess, className }: AddProfileFormProps) {
                                 <ul className="text-xs sm:text-sm text-muted-foreground space-y-1.5 list-disc list-inside">
                                     <li>用户名与主页链接都需要填写。</li>
                                     <li>YouTube 仅支持频道页（如 <span className="font-mono text-xs bg-muted px-1 py-0.5 rounded text-foreground">/ @handle</span>、<span className="font-mono text-xs bg-muted px-1 py-0.5 rounded text-foreground">/channel/xxx</span>）。</li>
-                                    <li>对标类型为必选；选择&ldquo;美学对标&rdquo;后不会显示子标签。</li>
+                                    <li>标签可以不选；未选择时系统会自动归类为“未分类”。</li>
                                     <li>添加后系统会尝试抓取最新 5 条内容，通常约 1 分钟内可见。</li>
                                 </ul>
                             </div>
