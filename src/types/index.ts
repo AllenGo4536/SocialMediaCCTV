@@ -10,6 +10,8 @@ export interface Profile {
     created_at: string;
     created_by?: string;
     creator_email?: string;
+    post_count?: number;
+    last_scraped_at?: string;
     tags?: ProfileTag[];
 }
 

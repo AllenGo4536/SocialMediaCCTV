@@ -23,6 +23,11 @@ interface ProfileTagRow {
     | Array<{ id: string; name: string; group_key: string }>;
 }
 
+interface ProfilePostRow {
+    profile_id: string;
+    updated_at: string | null;
+}
+
 export async function GET() {
     const { data: profiles, error } = await supabaseAdmin
         .from('profiles')
@@ -76,9 +81,34 @@ export async function GET() {
         }
     }
 
+    const postStatsMap = new Map<string, { post_count: number; last_scraped_at: string | null }>();
+    if (profileIds.length > 0) {
+        const { data: profilePosts, error: profilePostsError } = await supabaseAdmin
+            .from('posts')
+            .select('profile_id, updated_at')
+            .in('profile_id', profileIds);
+
+        if (profilePostsError) {
+            return NextResponse.json({ error: profilePostsError.message }, { status: 500 });
+        }
+
+        for (const row of (profilePosts || []) as ProfilePostRow[]) {
+            const current = postStatsMap.get(row.profile_id) || { post_count: 0, last_scraped_at: null };
+            current.post_count += 1;
+
+            if (row.updated_at && (!current.last_scraped_at || row.updated_at > current.last_scraped_at)) {
+                current.last_scraped_at = row.updated_at;
+            }
+
+            postStatsMap.set(row.profile_id, current);
+        }
+    }
+
     const enrichedProfiles = safeProfiles.map((profile) => ({
         ...profile,
         creator_email: profile.created_by ? userMap.get(profile.created_by) || null : null,
+        post_count: postStatsMap.get(profile.id)?.post_count || 0,
+        last_scraped_at: postStatsMap.get(profile.id)?.last_scraped_at || null,
         tags: tagsMap.get(profile.id) || [],
     }));
 

@@ -9,8 +9,22 @@ interface TikTokEntity {
     name?: string;
 }
 
+interface TikTokAuthorMeta {
+    id?: string;
+    name?: string;
+    nickName?: string;
+    verified?: boolean;
+    profileUrl?: string;
+    avatar?: string;
+    originalAvatarUrl?: string;
+}
+
 interface DatasetItem {
     ownerUsername?: string;
+    ownerFullName?: string;
+    ownerProfilePicUrl?: string;
+    ownerId?: string;
+    ownerIsVerified?: boolean;
     id?: string;
     shortCode?: string;
     type?: string;
@@ -28,7 +42,7 @@ interface DatasetItem {
     isPinned?: boolean;
     isSponsored?: boolean;
     timestamp?: string;
-    authorMeta?: { name?: string };
+    authorMeta?: TikTokAuthorMeta;
     input?: string;
     webVideoUrl?: string;
     isSlideshow?: boolean;
@@ -51,12 +65,76 @@ interface DatasetItem {
     date?: string;
     channelName?: string;
     channelUrl?: string;
+    channelAvatarUrl?: string;
+    channelThumbnailUrl?: string;
+    isChannelVerified?: boolean;
     fromYTUrl?: string;
     inputChannelUrl?: string;
 }
 
+interface ProfileMetadataUpdate {
+    external_id?: string;
+    full_name?: string;
+    avatar_url?: string;
+    is_verified?: boolean;
+    profile_url?: string;
+}
+
 function normalizeUsername(username: string) {
     return username.trim().replace(/^@/, '').toLowerCase();
+}
+
+function cleanString(value: string | undefined | null) {
+    const trimmed = typeof value === 'string' ? value.trim() : '';
+    return trimmed || undefined;
+}
+
+function mergeProfileMetadata(
+    current: ProfileMetadataUpdate | undefined,
+    incoming: ProfileMetadataUpdate
+) {
+    const next: ProfileMetadataUpdate = current ? { ...current } : {};
+
+    if (incoming.external_id) next.external_id = incoming.external_id;
+    if (incoming.full_name) next.full_name = incoming.full_name;
+    if (incoming.avatar_url) next.avatar_url = incoming.avatar_url;
+    if (typeof incoming.is_verified === 'boolean') next.is_verified = incoming.is_verified;
+    if (incoming.profile_url) next.profile_url = incoming.profile_url;
+
+    return next;
+}
+
+function extractInstagramProfileMetadata(item: DatasetItem): ProfileMetadataUpdate {
+    const username = cleanString(item.ownerUsername);
+
+    return {
+        external_id: cleanString(item.ownerId),
+        full_name: cleanString(item.ownerFullName),
+        avatar_url: cleanString(item.ownerProfilePicUrl),
+        is_verified: typeof item.ownerIsVerified === 'boolean' ? item.ownerIsVerified : undefined,
+        profile_url: username ? `https://www.instagram.com/${normalizeUsername(username)}/` : undefined,
+    };
+}
+
+function extractTikTokProfileMetadata(item: DatasetItem): ProfileMetadataUpdate {
+    const authorMeta = item.authorMeta;
+
+    return {
+        external_id: cleanString(authorMeta?.id),
+        full_name: cleanString(authorMeta?.nickName),
+        avatar_url: cleanString(authorMeta?.originalAvatarUrl) || cleanString(authorMeta?.avatar),
+        is_verified: typeof authorMeta?.verified === 'boolean' ? authorMeta.verified : undefined,
+        profile_url: cleanString(authorMeta?.profileUrl),
+    };
+}
+
+function extractYouTubeProfileMetadata(item: DatasetItem): ProfileMetadataUpdate {
+    return {
+        full_name: cleanString(item.channelName),
+        avatar_url: cleanString(item.channelAvatarUrl) || cleanString(item.channelThumbnailUrl),
+        is_verified: typeof item.isChannelVerified === 'boolean' ? item.isChannelVerified : undefined,
+        profile_url: cleanString(item.channelUrl) || cleanString(item.fromYTUrl) || cleanString(item.inputChannelUrl),
+    };
 }
 
 function detectPlatform(item: DatasetItem, actorId: string | undefined): SupportedPlatform | null {
@@ -361,6 +439,7 @@ export async function POST(req: NextRequest) {
         }
 
         const profileMap = new Map<string, string>();
+        const profileMetadataUpdates = new Map<string, ProfileMetadataUpdate>();
 
         if (usernameBuckets.instagram.size > 0) {
             const { data: instagramProfiles } = await supabaseAdmin
@@ -427,6 +506,16 @@ export async function POST(req: NextRequest) {
 
             if (!profileId) continue;
 
+            const incomingProfileMetadata = platform === 'instagram'
+                ? extractInstagramProfileMetadata(itemData)
+                : platform === 'tiktok'
+                    ? extractTikTokProfileMetadata(itemData)
+                    : extractYouTubeProfileMetadata(itemData);
+            profileMetadataUpdates.set(
+                profileId,
+                mergeProfileMetadata(profileMetadataUpdates.get(profileId), incomingProfileMetadata)
+            );
+
             if (platform === 'instagram') {
                 postsToUpsert.push(mapInstagramItem(itemData, profileId));
             } else if (platform === 'tiktok') {
@@ -434,6 +523,27 @@ export async function POST(req: NextRequest) {
             } else {
                 postsToUpsert.push(mapYoutubeItem(itemData, profileId));
             }
+        }
+
+        if (profileMetadataUpdates.size > 0) {
+            await Promise.all(
+                [...profileMetadataUpdates.entries()].map(async ([profileId, update]) => {
+                    const payload = Object.fromEntries(
+                        Object.entries(update).filter(([, value]) => value !== undefined)
+                    );
+
+                    if (Object.keys(payload).length === 0) return;
+
+                    const { error: profileUpdateError } = await supabaseAdmin
+                        .from('profiles')
+                        .update(payload)
+                        .eq('id', profileId);
+
+                    if (profileUpdateError) {
+                        console.error('Profile metadata update error:', profileUpdateError);
+                    }
+                })
+            );
         }
 
         if (postsToUpsert.length > 0) {

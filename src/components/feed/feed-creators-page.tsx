@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useMemo, useState } from 'react';
-import { Loader2, PencilLine, Tags, UserPlus } from 'lucide-react';
+import { useDeferredValue, useEffect, useMemo, useState } from 'react';
+import { Loader2, PencilLine, Search, Tags, UserPlus } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '@/components/auth/auth-provider';
 import { WorkspaceShell } from '@/components/layout/workspace-shell';
 import { ProfileTagFields } from '@/components/profile/profile-tag-fields';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -34,9 +35,24 @@ const tagToneByGroup = {
   content_type: 'border-border/60 bg-background/80 text-muted-foreground',
 } as const;
 
+function formatMetaTime(value?: string) {
+  if (!value) return '暂无';
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '暂无';
+
+  return new Intl.DateTimeFormat('zh-CN', {
+    month: 'numeric',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(date);
+}
+
 export function FeedCreatorsPage() {
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [profileUrl, setProfileUrl] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
@@ -50,6 +66,7 @@ export function FeedCreatorsPage() {
   const [editContentTags, setEditContentTags] = useState<ContentTag[]>([]);
   const [savingTags, setSavingTags] = useState(false);
   const { user, session, openAuthModal } = useAuth();
+  const deferredSearchQuery = useDeferredValue(searchQuery);
 
   const counts = useMemo(() => {
     return {
@@ -58,6 +75,25 @@ export function FeedCreatorsPage() {
       tiktok: profiles.filter((profile) => profile.platform === 'tiktok').length,
     };
   }, [profiles]);
+
+  const filteredProfiles = useMemo(() => {
+    const keyword = deferredSearchQuery.trim().toLowerCase();
+    if (!keyword) return profiles;
+
+    return profiles.filter((profile) => {
+      const searchableText = [
+        profile.full_name,
+        profile.username,
+        profile.profile_url,
+        profile.creator_email,
+      ]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase();
+
+      return searchableText.includes(keyword);
+    });
+  }, [deferredSearchQuery, profiles]);
 
   const loadProfiles = async () => {
     setLoading(true);
@@ -227,6 +263,17 @@ export function FeedCreatorsPage() {
     }
   };
 
+  const getAvatarFallback = (profile: Profile) => {
+    const seed = (profile.full_name || profile.username || profile.platform).trim();
+    return seed.charAt(0).toUpperCase();
+  };
+
+  const avatarFallbackTone = (platform: Platform) => {
+    if (platform === 'instagram') return 'bg-pink-500/15 text-pink-200';
+    if (platform === 'tiktok') return 'bg-cyan-500/15 text-cyan-200';
+    return 'bg-red-500/15 text-red-200';
+  };
+
   return (
     <WorkspaceShell
       title="信息流页"
@@ -287,7 +334,25 @@ export function FeedCreatorsPage() {
 
         <Card className="border-border/70 bg-card/65 py-0">
           <CardHeader className="px-6 pt-6">
-            <CardTitle>已录入达人</CardTitle>
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+              <div>
+                <CardTitle>已录入达人</CardTitle>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  {deferredSearchQuery.trim()
+                    ? `当前匹配 ${filteredProfiles.length} / ${profiles.length} 位达人`
+                    : `共 ${profiles.length} 位达人`}
+                </p>
+              </div>
+              <div className="relative w-full lg:w-[22rem]">
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  value={searchQuery}
+                  onChange={(event) => setSearchQuery(event.target.value)}
+                  placeholder="搜索达人名、用户名、链接"
+                  className="pl-9"
+                />
+              </div>
+            </div>
           </CardHeader>
           <CardContent className="px-6 pb-6">
             {loading ? (
@@ -299,43 +364,60 @@ export function FeedCreatorsPage() {
               <div className="rounded-[20px] border border-dashed border-border/70 bg-background/50 px-5 py-10 text-center text-sm text-muted-foreground">
                 当前还没有录入达人。
               </div>
+            ) : filteredProfiles.length === 0 ? (
+              <div className="rounded-[20px] border border-dashed border-border/70 bg-background/50 px-5 py-10 text-center text-sm text-muted-foreground">
+                没有找到匹配的达人，试试搜用户名或主页链接。
+              </div>
             ) : (
               <div className="space-y-3">
-                {profiles.map((profile) => (
+                {filteredProfiles.map((profile) => (
                   <div
                     key={profile.id}
                     className="rounded-2xl border border-border/70 bg-background/70 p-4"
                   >
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-2">
-                          <p className="font-medium text-foreground">{profile.full_name || `@${profile.username}`}</p>
-                          <Badge className="border-transparent bg-primary/12 text-primary">
-                            {platformLabels[profile.platform]}
-                          </Badge>
-                        </div>
-                        <p className="mt-1 text-sm text-muted-foreground">@{profile.username}</p>
-                        {profile.tags && profile.tags.length > 0 ? (
-                          <div className="mt-3 flex flex-wrap gap-2">
-                            {profile.tags.map((tag) => (
-                              <Badge
-                                key={tag.id}
-                                variant="outline"
-                                className={tagToneByGroup[tag.group]}
-                              >
-                                {tag.label}
-                              </Badge>
-                            ))}
+                      <div className="min-w-0 flex items-start gap-3">
+                        <Avatar className="mt-0.5 h-11 w-11 border border-border/60">
+                          <AvatarImage src={profile.avatar_url} alt={profile.full_name || profile.username} />
+                          <AvatarFallback className={avatarFallbackTone(profile.platform)}>
+                            {getAvatarFallback(profile)}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="min-w-0">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <p className="font-medium text-foreground">{profile.full_name || `@${profile.username}`}</p>
+                            <Badge className="border-transparent bg-primary/12 text-primary">
+                              {platformLabels[profile.platform]}
+                            </Badge>
                           </div>
-                        ) : null}
-                        <a
-                          href={profile.profile_url}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="mt-3 block truncate text-sm text-muted-foreground transition-colors hover:text-foreground"
-                        >
-                          {profile.profile_url}
-                        </a>
+                          <p className="mt-1 text-sm text-muted-foreground">@{profile.username}</p>
+                          <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground/90">
+                            <span>录入于 {formatMetaTime(profile.created_at)}</span>
+                            <span>最近抓取 {formatMetaTime(profile.last_scraped_at)}</span>
+                            <span>已抓取 {profile.post_count || 0} 条</span>
+                          </div>
+                          {profile.tags && profile.tags.length > 0 ? (
+                            <div className="mt-3 flex flex-wrap gap-2">
+                              {profile.tags.map((tag) => (
+                                <Badge
+                                  key={tag.id}
+                                  variant="outline"
+                                  className={tagToneByGroup[tag.group]}
+                                >
+                                  {tag.label}
+                                </Badge>
+                              ))}
+                            </div>
+                          ) : null}
+                          <a
+                            href={profile.profile_url}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="mt-3 block truncate text-sm text-muted-foreground transition-colors hover:text-foreground"
+                          >
+                            {profile.profile_url}
+                          </a>
+                        </div>
                       </div>
 
                       <div className="flex items-center gap-2 text-xs text-muted-foreground">

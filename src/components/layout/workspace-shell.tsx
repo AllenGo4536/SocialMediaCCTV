@@ -81,8 +81,8 @@ export function WorkspaceShell({
         </header>
 
         <div className="flex min-h-[calc(100vh-4rem)]">
-          <aside className="hidden lg:flex lg:w-64 flex-col border-r border-border/70 bg-[#0a0d12]/80 backdrop-blur-xl">
-            <nav className="flex-1 px-3 py-5">
+          <aside className="hidden flex-col border-r border-border/70 bg-[#0a0d12]/80 backdrop-blur-xl lg:sticky lg:top-16 lg:flex lg:h-[calc(100vh-4rem)] lg:w-64 lg:shrink-0 lg:self-start">
+            <nav className="flex-1 overflow-y-auto px-3 py-5">
               <div className="mb-3 px-3 text-[11px] font-semibold uppercase tracking-[0.22em] text-muted-foreground/80">
                 Pages
               </div>
